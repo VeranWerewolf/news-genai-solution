@@ -1,0 +1,1 @@
+# news-genai-solution
