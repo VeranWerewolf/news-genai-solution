@@ -179,6 +179,5 @@ cython_debug/
 #Environment folders
 grafana-data/*
 postgres-data/*
-Vector-db/*
+vector-db/*
 ollama-data/*
-docker-cache/*

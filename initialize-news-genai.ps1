@@ -43,28 +43,6 @@ foreach ($dir in $directories) {
     }
 }
 
-Write-Host "=== Setting up Docker build cache directories ===" -ForegroundColor Cyan
-Write-Host ""
-
-# Create cache directories
-$cacheDirectories = @(
-    "docker-cache/pip",
-    "docker-cache/npm"
-)
-
-foreach ($dir in $cacheDirectories) {
-    if (-not (Test-Path $dir)) {
-        Write-Host "Creating cache directory: $dir" -ForegroundColor Yellow
-        New-Item -ItemType Directory -Path $dir -Force | Out-Null
-        Write-Host "  Cache directory created" -ForegroundColor Green
-    } else {
-        Write-Host "Cache directory already exists: $dir" -ForegroundColor Gray
-    }
-}
-
-Write-Host ""
-Write-Host "Cache directories are ready!" -ForegroundColor Green
-
 # Create .env file
 Write-Host ""
 Write-Host "Creating .env file..." -ForegroundColor Yellow

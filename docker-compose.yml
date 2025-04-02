@@ -1,12 +1,6 @@
 services:
   app:
-    build:
-      context: ./app
-      dockerfile: Dockerfile
-      cache_from:
-        - type=local,src=./docker-cache/pip
-      cache_to:
-        - type=local,dest=./docker-cache/pip,mode=max
+    build: ./app
     volumes:
       - ./app:/app
       - pip-cache:/pip-cache
@@ -114,13 +108,7 @@ services:
     restart: unless-stopped
 
   ui:
-    build:
-      context: ./ui
-      dockerfile: Dockerfile
-      cache_from:
-        - type=local,src=./docker-cache/npm
-      cache_to:
-        - type=local,dest=./docker-cache/npm,mode=max
+    build: ./ui
     ports:
       - "3000:3000"
     depends_on:
@@ -139,7 +127,3 @@ networks:
 volumes:
   ollama_data:
     # Named volume for Ollama data
-  pip-cache:
-    # Named volume for pip packages cache
-  npm-cache:
-    # Named volume for npm packages cache
