@@ -3,7 +3,6 @@ services:
     build: ./app
     volumes:
       - ./app:/app
-      - pip-cache:/pip-cache
     env_file:
       - .env
     ports:
@@ -115,8 +114,6 @@ services:
       - app
     networks:
       - news-network
-    volumes:
-      - npm-cache:/root/.npm
     environment:
       - API_URL=http://app:8000
 
