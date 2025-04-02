@@ -1,94 +1,182 @@
 import pytest
 from src.scraper.extractor import NewsExtractor
 from unittest.mock import patch, MagicMock
+from bs4 import BeautifulSoup
 
 def test_extract_from_url():
+    """Test basic extraction functionality."""
+    with patch('requests.get') as mock_get:
+        extractor = NewsExtractor()
+        
+        # Setup mock response
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.content = """
+        <html>
+            <head><title>Test Article - News Site</title></head>
+            <body>
+                <h1>Test Headline</h1>
+                <div class="article-content">
+                    <p>This is test paragraph 1.</p>
+                    <p>This is test paragraph 2.</p>
+                </div>
+                <div class="author">Test Author</div>
+            </body>
+        </html>
+        """
+        mock_get.return_value = mock_response
+        
+        # Test extraction
+        article = extractor.extract_from_url("https://example.com")
+        
+        # Assert article properties
+        assert article is not None
+        assert article['url'] == "https://example.com"
+        assert article['title'] == "Test Headline"
+        assert "This is test paragraph 1." in article['text']
+        assert "This is test paragraph 2." in article['text']
+        assert "Test Author" in article['authors']
+
+def test_extract_title():
+    """Test title extraction logic."""
     extractor = NewsExtractor()
-    url = "https://www.bbc.com/news/world-europe-56099778"
     
-    # Test extraction
-    article = extractor.extract_from_url(url)
+    # Test with h1
+    html = "<html><body><h1>Main Headline</h1></body></html>"
+    soup = BeautifulSoup(html, 'html.parser')
+    assert extractor._extract_title(soup) == "Main Headline"
     
-    # Assert article properties
-    assert article is not None
-    assert 'url' in article
-    assert 'title' in article
-    assert 'text' in article
-    assert len(article['text']) > 0
+    # Test with title class
+    html = '<html><body><div class="headline">Class Headline</div></body></html>'
+    soup = BeautifulSoup(html, 'html.parser')
+    assert extractor._extract_title(soup) == "Class Headline"
+    
+    # Test with title tag and site name
+    html = "<html><head><title>Page Title - Site Name</title></head></html>"
+    soup = BeautifulSoup(html, 'html.parser')
+    assert extractor._extract_title(soup) == "Page Title"
 
-def test_trafilatura_extraction():
-    """Test successful extraction with trafilatura."""
-    with patch('trafilatura.fetch_url') as mock_fetch:
-        with patch('trafilatura.extract') as mock_extract:
-            extractor = NewsExtractor()
-            
-            # Setup mocks
-            mock_fetch.return_value = "downloaded_content"
-            mock_extract.return_value = '{"title": "Test Title", "text": "Test content", "author": "Test Author", "date": "2023-01-01"}'
-            
-            article = extractor.extract_from_url("https://example.com")
-            
-            # Verify results
-            assert article is not None
-            assert article['title'] == "Test Title"
-            assert article['text'] == "Test content"
-            assert article['authors'] == ["Test Author"]
-            assert article['source'] == 'trafilatura'
+def test_extract_content():
+    """Test content extraction logic."""
+    extractor = NewsExtractor()
+    
+    # Test with article tag
+    html = """
+    <html><body>
+        <article>
+            <p>Article paragraph 1.</p>
+            <p>Article paragraph 2.</p>
+        </article>
+    </body></html>
+    """
+    soup = BeautifulSoup(html, 'html.parser')
+    text, container = extractor._extract_content(soup)
+    assert "Article paragraph 1." in text
+    assert "Article paragraph 2." in text
+    
+    # Test with content class
+    html = """
+    <html><body>
+        <div class="content">
+            <p>Content paragraph 1.</p>
+            <p>Content paragraph 2.</p>
+        </div>
+    </body></html>
+    """
+    soup = BeautifulSoup(html, 'html.parser')
+    text, container = extractor._extract_content(soup)
+    assert "Content paragraph 1." in text
+    assert "Content paragraph 2." in text
 
-def test_bs4_fallback():
-    """Test fallback to BS4 when trafilatura fails."""
-    with patch('trafilatura.fetch_url') as mock_fetch:
-        with patch('requests.get') as mock_get:
-            extractor = NewsExtractor()
-            
-            # Setup trafilatura to fail
-            mock_fetch.return_value = None
-            
-            # Setup requests mock
-            mock_response = MagicMock()
-            mock_response.status_code = 200
-            mock_response.content = """
-            <html>
-                <head><title>Test BS4 Title</title></head>
-                <body>
-                    <h1>Test Header</h1>
-                    <article>
-                        <p>Test paragraph 1.</p>
-                        <p>Test paragraph 2.</p>
-                    </article>
-                    <div class="author">John Doe</div>
-                    <time datetime="2023-01-01T12:00:00Z">Jan 1, 2023</time>
-                </body>
-            </html>
-            """
-            mock_get.return_value = mock_response
-            
-            article = extractor.extract_from_url("https://example.com")
-            
-            # Verify results
-            assert article is not None
-            assert article['title'] == "Test Header"  # It should pick h1 over title
-            assert "Test paragraph 1." in article['text']
-            assert "Test paragraph 2." in article['text']
-            assert "John Doe" in article['authors']
-            assert article['source'] == 'bs4'
+def test_extract_authors():
+    """Test author extraction logic."""
+    extractor = NewsExtractor()
+    
+    # Test with author class
+    html = """
+    <html><body>
+        <span class="author">John Smith</span>
+    </body></html>
+    """
+    soup = BeautifulSoup(html, 'html.parser')
+    authors = extractor._extract_authors(soup, None)
+    assert "John Smith" in authors
+    
+    # Test with byline and "By" prefix
+    html = """
+    <html><body>
+        <div class="byline">By Jane Doe</div>
+    </body></html>
+    """
+    soup = BeautifulSoup(html, 'html.parser')
+    authors = extractor._extract_authors(soup, None)
+    assert "Jane Doe" in authors
+    
+    # Test with schema.org markup
+    html = """
+    <html><body>
+        <span itemprop="author">Mark Johnson</span>
+    </body></html>
+    """
+    soup = BeautifulSoup(html, 'html.parser')
+    authors = extractor._extract_authors(soup, None)
+    assert "Mark Johnson" in authors
+
+def test_extract_date():
+    """Test date extraction logic."""
+    extractor = NewsExtractor()
+    
+    # Test with time tag
+    html = """
+    <html><body>
+        <time datetime="2025-04-01T10:30:00Z">April 1, 2025</time>
+    </body></html>
+    """
+    soup = BeautifulSoup(html, 'html.parser')
+    date = extractor._extract_date(soup)
+    assert date is not None
+    assert date.year == 2025
+    assert date.month == 4
+    assert date.day == 1
+    
+    # Test with meta tag
+    html = """
+    <html><head>
+        <meta property="article:published_time" content="2025-03-15T08:45:00Z">
+    </head></html>
+    """
+    soup = BeautifulSoup(html, 'html.parser')
+    date = extractor._extract_date(soup)
+    assert date is not None
+    assert date.year == 2025
+    assert date.month == 3
+    assert date.day == 15
+
+def test_extract_source():
+    """Test source extraction logic."""
+    extractor = NewsExtractor()
+    
+    # Test with www prefix
+    assert extractor._extract_source("https://www.example.com/article") == "example.com"
+    
+    # Test without www prefix
+    assert extractor._extract_source("https://news.example.org/story/12345") == "news.example.org"
+    
+    # Test with subdomain
+    assert extractor._extract_source("https://politics.news.example.net/2025/04/01/headline") == "politics.news.example.net"
 
 def test_extraction_failure():
-    """Test when both extraction methods fail."""
-    with patch('trafilatura.fetch_url') as mock_fetch:
-        with patch('requests.get') as mock_get:
-            extractor = NewsExtractor()
-            
-            # Setup trafilatura to fail
-            mock_fetch.return_value = None
-            
-            # Setup requests to fail
-            mock_get.side_effect = Exception("Connection error")
-            
-            article = extractor.extract_from_url("https://example.com")
-            
-            # Verify results
-            assert article is None
+    """Test when extraction fails."""
+    with patch('requests.get') as mock_get:
+        extractor = NewsExtractor()
+        
+        # Setup request to fail
+        mock_get.side_effect = Exception("Connection error")
+        
+        article = extractor.extract_from_url("https://example.com")
+        
+        # Verify results
+        assert article is None
 
 def test_extract_from_urls():
     """Test extracting from multiple URLs."""
