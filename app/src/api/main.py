@@ -1,13 +1,19 @@
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 import os
-from pydantic import BaseModel, HttpUrl
-from typing import List, Optional
+import logging
+from pydantic import BaseModel, HttpUrl, validator
+from typing import List, Optional, Union, Any
+import urllib.parse
 
 from ..scraper.extractor import NewsExtractor
 from ..genai.analyzer import ArticleAnalyzer
 from ..database.vector_store import VectorDatabase
 from ..search.semantic_search import SemanticSearch
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="News GenAI API",
@@ -16,15 +22,16 @@ app = FastAPI(
 )
 
 # Get allowed origins from environment or use default
-allowed_origins = os.environ.get("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
+allowed_origins = os.environ.get("ALLOWED_ORIGINS", "http://localhost:3000,http://ui:3000").split(",")
+logger.info(f"Allowing CORS from origins: {allowed_origins}")
 
 # Add CORS middleware with specific allowed origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,  # Only allow the UI origin
+    allow_origins=["*"],  # Allow all origins for debugging
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE"],  # Specify allowed methods
-    allow_headers=["Content-Type", "Authorization"],  # Specify allowed headers
+    allow_methods=["*"],  # Allow all methods
+    allow_headers=["*"],  # Allow all headers
 )
 
 # Create instances of components
@@ -34,8 +41,44 @@ vector_db = VectorDatabase()
 semantic_search = SemanticSearch()
 
 # Define request and response models
+class UrlItem(str):
+    @classmethod
+    def __get_validators__(cls):
+        yield cls.validate
+
+    @classmethod
+    def validate(cls, v):
+        if not isinstance(v, str):
+            raise ValueError('string required')
+        return v
+
 class UrlListRequest(BaseModel):
-    urls: List[HttpUrl]
+    urls: List[UrlItem]
+    
+    class Config:
+        schema_extra = {
+            "example": {
+                "urls": ["https://example.com/article1", "https://example.com/article2"]
+            }
+        }
+    
+    @validator('urls')
+    def validate_urls(cls, v):
+        valid_urls = []
+        for url in v:
+            try:
+                # Basic URL validation
+                parsed = urllib.parse.urlparse(url)
+                if parsed.scheme and parsed.netloc:
+                    valid_urls.append(url)
+                else:
+                    logger.warning(f"Skipping invalid URL: {url}")
+            except Exception as e:
+                logger.warning(f"Error validating URL {url}: {e}")
+        
+        if not valid_urls:
+            raise ValueError("No valid URLs provided")
+        return valid_urls
 
 class SearchRequest(BaseModel):
     query: str
@@ -61,38 +104,48 @@ async def health_check():
 async def extract_articles(request: UrlListRequest):
     """Extract articles from the provided URLs."""
     try:
+        logger.info(f"Extracting articles from {len(request.urls)} URLs")
         # Extract articles
         articles = news_extractor.extract_from_urls(request.urls)
         if not articles:
+            logger.warning("No articles could be extracted")
             raise HTTPException(status_code=404, detail="No articles could be extracted")
             
+        logger.info(f"Successfully extracted {len(articles)} articles")
         return articles
     except Exception as e:
+        logger.error(f"Error extracting articles: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/analyze", response_model=List[ArticleResponse])
 async def analyze_articles(request: UrlListRequest):
     """Extract and analyze articles from the provided URLs."""
     try:
+        logger.info(f"Analyzing articles from {len(request.urls)} URLs")
         # Extract articles
         articles = news_extractor.extract_from_urls(request.urls)
         if not articles:
+            logger.warning("No articles could be extracted")
             raise HTTPException(status_code=404, detail="No articles could be extracted")
             
         # Analyze articles
         analyzed_articles = article_analyzer.analyze_articles(articles)
+        logger.info(f"Successfully analyzed {len(analyzed_articles)} articles")
             
         return analyzed_articles
     except Exception as e:
+        logger.error(f"Error analyzing articles: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/store", response_model=List[str])
 async def store_articles(request: UrlListRequest):
     """Extract, analyze, and store articles from the provided URLs."""
     try:
+        logger.info(f"Processing and storing articles from {len(request.urls)} URLs")
         # Extract articles
         articles = news_extractor.extract_from_urls(request.urls)
         if not articles:
+            logger.warning("No articles could be extracted")
             raise HTTPException(status_code=404, detail="No articles could be extracted")
             
         # Analyze articles
@@ -100,22 +153,27 @@ async def store_articles(request: UrlListRequest):
         
         # Store articles
         article_ids = vector_db.store_articles(analyzed_articles)
+        logger.info(f"Successfully stored {len(article_ids)} articles")
             
         return article_ids
     except Exception as e:
+        logger.error(f"Error storing articles: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/search", response_model=List[ArticleResponse])
 async def search_articles(request: SearchRequest):
     """Search for articles matching the query."""
     try:
+        logger.info(f"Searching for articles with query: '{request.query}'")
         # Perform search
         results = semantic_search.search(
             query=request.query,
             enhance=request.enhance,
             limit=request.limit
         )
-            
+        
+        logger.info(f"Search returned {len(results)} results")
         return results
     except Exception as e:
+        logger.error(f"Error searching articles: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

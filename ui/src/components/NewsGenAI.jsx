@@ -27,6 +27,9 @@ const NewsGenAI = () => {
     setMessage('Processing URLs...');
 
     try {
+      console.log('Sending request to:', `${API_BASE_URL}/store`);
+      console.log('Request payload:', JSON.stringify({ urls: urlList }));
+      
       const response = await fetch(`${API_BASE_URL}/store`, {
         method: 'POST',
         headers: {
@@ -35,7 +38,9 @@ const NewsGenAI = () => {
         body: JSON.stringify({ urls: urlList }),
       });
 
+      console.log('Response status:', response.status);
       const data = await response.json();
+      console.log('Response data:', data);
       
       if (response.ok) {
         setMessage(`Successfully processed ${data.length} URLs.`);
@@ -45,7 +50,8 @@ const NewsGenAI = () => {
         setMessage(`Error: ${data.detail || 'Failed to process URLs'}`);
       }
     } catch (error) {
-      setMessage(`Error: ${error.message}`);
+      console.error('Fetch error:', error);
+      setMessage(`Error: ${error.message || 'Failed to fetch'}`);
     } finally {
       setIsLoading(false);
     }
@@ -84,6 +90,7 @@ const NewsGenAI = () => {
         setSearchResults([]);
       }
     } catch (error) {
+      console.error('Search error:', error);
       setMessage(`Error: ${error.message}`);
       setSearchResults([]);
     } finally {
@@ -94,6 +101,11 @@ const NewsGenAI = () => {
   return (
     <div className="max-w-6xl mx-auto p-6">
       <h1 className="text-3xl font-bold mb-6">News GenAI Platform</h1>
+      
+      {/* Debug Info */}
+      <div className="mb-4 p-4 border rounded-lg bg-gray-100 text-sm">
+        <p>API URL: {API_BASE_URL}</p>
+      </div>
       
       {/* URL Processing Section */}
       <div className="mb-8 p-6 border rounded-lg bg-white shadow">
