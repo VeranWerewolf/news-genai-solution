@@ -175,3 +175,8 @@ cython_debug/
 
 #VSCode
 ./vs
+
+#Environment folders
+grafana-data/*
+postgres-data/*
+Vector-db/*

@@ -6,7 +6,7 @@ beautifulsoup4==4.12.2
 # GenAI
 langchain==0.0.267
 langchain-community==0.0.16
-langchain-core==0.1.12
+langchain-core>=0.1.16
 requests==2.31.0
 
 # Embeddings
