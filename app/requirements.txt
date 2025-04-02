@@ -2,6 +2,7 @@
 newspaper3k==0.2.8
 trafilatura==1.6.0
 beautifulsoup4==4.12.2
+lxml[html_clean]
 
 # GenAI
 langchain==0.0.267

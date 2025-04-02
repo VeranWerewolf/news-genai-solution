@@ -180,3 +180,5 @@ cython_debug/
 grafana-data/*
 postgres-data/*
 Vector-db/*
+ollama-data/*
+docker-cache/*

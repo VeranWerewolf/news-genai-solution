@@ -1,8 +1,15 @@
 services:
   app:
-    build: ./app
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+      cache_from:
+        - type=local,src=./docker-cache/pip
+      cache_to:
+        - type=local,dest=./docker-cache/pip,mode=max
     volumes:
       - ./app:/app
+      - pip-cache:/pip-cache
     env_file:
       - .env
     ports:
@@ -107,13 +114,21 @@ services:
     restart: unless-stopped
 
   ui:
-    build: ./ui
+    build:
+      context: ./ui
+      dockerfile: Dockerfile
+      cache_from:
+        - type=local,src=./docker-cache/npm
+      cache_to:
+        - type=local,dest=./docker-cache/npm,mode=max
     ports:
       - "3000:3000"
     depends_on:
       - app
     networks:
       - news-network
+    volumes:
+      - npm-cache:/root/.npm
     environment:
       - API_URL=http://app:8000
 
@@ -124,3 +139,7 @@ networks:
 volumes:
   ollama_data:
     # Named volume for Ollama data
+  pip-cache:
+    # Named volume for pip packages cache
+  npm-cache:
+    # Named volume for npm packages cache

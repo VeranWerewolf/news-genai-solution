@@ -7,12 +7,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     gcc \
     curl \
+    libxml2-dev \
+    libxslt-dev \
+    python3-dev \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
+# Copy requirements file first for better caching
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+
+# Create pip cache directory
+ENV PIP_CACHE_DIR=/pip-cache
+
+# Install Python dependencies with caching
+RUN --mount=type=cache,target=/pip-cache \
+    pip install --cache-dir=/pip-cache --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY . .
