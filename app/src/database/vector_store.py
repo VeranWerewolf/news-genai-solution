@@ -5,12 +5,13 @@ import hashlib
 import logging
 import psycopg2
 from psycopg2.extras import execute_values
-from langchain.embeddings import OpenAIEmbeddings
 from langchain.vectorstores import Chroma
 from qdrant_client import QdrantClient
 from qdrant_client.http import models
 from qdrant_client.http.exceptions import UnexpectedResponse
 
+# Import local embeddings
+from ..genai.embeddings import LocalSentenceTransformerEmbeddings
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -193,24 +194,28 @@ class VectorDatabase:
             db_type: Type of vector database to use ('qdrant' or 'chroma')
         """
         self.db_type = db_type
-        self.embeddings = OpenAIEmbeddings(openai_api_key=os.getenv("OPENAI_API_KEY"))
+        # Use local sentence transformer embeddings
+        self.embeddings = LocalSentenceTransformerEmbeddings()
         self.postgres = PostgresClient()
+        
+        # Define embedding dimensions based on the model
+        self.embedding_dim = 384  # Default dimension for all-MiniLM-L6-v2
         
         if db_type == "qdrant":
             # Initialize Qdrant client
             self.client = QdrantClient(
-                host=os.getenv("VECTOR_DB_HOST", "localhost"),
+                host=os.getenv("VECTOR_DB_HOST", "vector-db"),
                 port=int(os.getenv("VECTOR_DB_PORT", 6333))
             )
             
             # Create collections if they don't exist
             self.collections = {
                 "news_articles": {
-                    "size": 1536,  # OpenAI embedding dimension
+                    "size": self.embedding_dim,  # Sentence transformer embedding dimension
                     "distance": models.Distance.COSINE
                 },
                 "news_topics": {
-                    "size": 1536,
+                    "size": self.embedding_dim,
                     "distance": models.Distance.COSINE
                 }
             }
@@ -522,80 +527,45 @@ class VectorDatabase:
             logger.error(f"Error searching topics: {e}")
             return []
     
-    def get_similar_articles(self, article_id: str, limit: int = 5) -> List
-
-# Search module
-CreateFile -path "E:\GenAI\news-genai-solution\app\src\search\__init__.py" -content ""
-CreateFile -path "E:\GenAI\news-genai-solution\app\src\search\semantic_search.py" -content @"
-from typing import Dict, Any, List
-import os
-from langchain.llms import OpenAI
-from langchain.prompts import PromptTemplate
-from langchain.chains import LLMChain
-from langchain.chat_models import ChatOpenAI
-
-from ..database.vector_store import VectorDatabase
-
-
-class SemanticSearch:
-    """Provides semantic search capabilities for news articles."""
-    
-    def __init__(self):
-        """Initialize the semantic search engine."""
-        api_key = os.getenv("OPENAI_API_KEY")
-        self.llm = ChatOpenAI(openai_api_key=api_key, temperature=0.0)
-        self.vector_db = VectorDatabase()
-        
-        # Create prompt for query enhancement
-        self.query_enhancement_prompt = PromptTemplate(
-            input_variables=["query"],
-            template="""
-            Original search query: {query}
-            
-            Task: Enhance this search query for finding news articles. 
-            Identify the key concepts, add relevant synonyms or related terms,
-            and rewrite it to maximize semantic search effectiveness.
-            
-            Enhanced query:
-            """
-        )
-        
-        # Create chain for query enhancement
-        self.query_chain = LLMChain(llm=self.llm, prompt=self.query_enhancement_prompt)
-        
-    def enhance_query(self, query: str) -> str:
+    def get_similar_articles(self, article_id: str, limit: int = 5) -> List[Dict[str, Any]]:
         """
-        Enhance the search query using AI to improve search results.
+        Get articles similar to the given article.
         
         Args:
-            query: Original search query
-            
-        Returns:
-            Enhanced search query
-        """
-        enhanced_query = self.query_chain.run(query=query)
-        return enhanced_query.strip()
-        
-    def search(self, query: str, enhance: bool = True, limit: int = 5) -> List[Dict[str, Any]]:
-        """
-        Perform semantic search for news articles matching the query.
-        
-        Args:
-            query: Search query
-            enhance: Whether to enhance the query using AI
+            article_id: ID of the reference article
             limit: Maximum number of results to return
             
         Returns:
-            List of matching articles
+            List of similar articles
         """
-        # Enhance query if requested
-        if enhance:
-            search_query = self.enhance_query(query)
-        else:
-            search_query = query
+        try:
+            if self.db_type == "qdrant":
+                # Get the article
+                results = self.client.retrieve(
+                    collection_name="news_articles",
+                    ids=[article_id]
+                )
+                
+                if not results:
+                    return []
+                
+                # Get similar articles
+                similar = self.client.search(
+                    collection_name="news_articles",
+                    query_vector=results[0].vector,
+                    limit=limit + 1  # +1 because the article itself will be included
+                )
+                
+                # Filter out the query article
+                articles = [
+                    point.payload for point in similar
+                    if point.id != article_id
+                ]
+                
+                return articles[:limit]
             
-        # Search the vector database
-        results = self.vector_db.search(search_query, limit=limit)
-        
-        # Return results
-        return results
+            return []
+            
+        except Exception as e:
+            logger.error(f"Error getting similar articles: {e}")
+            return []

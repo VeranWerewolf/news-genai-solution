@@ -5,8 +5,12 @@ beautifulsoup4==4.12.2
 
 # GenAI
 langchain==0.0.267
-openai==0.28.0
-tiktoken==0.5.1
+langchain-community==0.0.16
+langchain-core==0.1.12
+requests==2.31.0
+
+# Embeddings
+sentence-transformers==2.2.2
 
 # Vector Database
 chromadb==0.4.13

@@ -11,18 +11,38 @@ services:
       - "8000:8000"
     depends_on:
       - vector-db
+      - ollama
     networks:
       - news-network
     environment:
       - VECTOR_DB_HOST=vector-db
       - VECTOR_DB_PORT=6333
-      - OPENAI_API_KEY=\
+      - LLM_API_URL=http://ollama:11434/api
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "11434:11434"
+    networks:
+      - news-network
+    restart: unless-stopped
+    # Use the following commented section if you want to enable GPU support
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
 
   vector-db:
     image: qdrant/qdrant:latest
@@ -102,3 +122,7 @@ services:
 networks:
   news-network:
     driver: bridge
+
+volumes:
+  ollama_data:
+    # Named volume for Ollama data
