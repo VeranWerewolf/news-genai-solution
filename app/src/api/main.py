@@ -1,4 +1,6 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
+from fastapi.middleware.cors import CORSMiddleware
+import os
 from pydantic import BaseModel, HttpUrl
 from typing import List, Optional
 
@@ -11,6 +13,18 @@ app = FastAPI(
     title="News GenAI API",
     description="API for news extraction, analysis, and semantic search",
     version="1.0.0"
+)
+
+# Get allowed origins from environment or use default
+allowed_origins = os.environ.get("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
+
+# Add CORS middleware with specific allowed origins
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,  # Only allow the UI origin
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE"],  # Specify allowed methods
+    allow_headers=["Content-Type", "Authorization"],  # Specify allowed headers
 )
 
 # Create instances of components
@@ -38,6 +52,10 @@ class ArticleResponse(BaseModel):
 @app.get("/")
 async def root():
     return {"message": "Welcome to the News GenAI API"}
+
+@app.get("/health")
+async def health_check():
+    return {"status": "ok"}
 
 @app.post("/extract", response_model=List[ArticleResponse])
 async def extract_articles(request: UrlListRequest):

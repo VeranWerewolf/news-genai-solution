@@ -1,6 +1,6 @@
-# Rebuild News GenAI App Container Script
+# Rebuild News GenAI App and UI Containers Script
 
-Write-Host "=== Rebuilding News GenAI App Container ===" -ForegroundColor Cyan
+Write-Host "=== Rebuilding News GenAI App and UI Containers ===" -ForegroundColor Cyan
 Write-Host ""
 
 # Stop all containers
@@ -8,11 +8,16 @@ Write-Host "Stopping all containers..." -ForegroundColor Yellow
 docker-compose down
 Write-Host "  All containers stopped" -ForegroundColor Green
 
-# Rebuild the app container
+# Rebuild the app and UI containers
 Write-Host ""
 Write-Host "Rebuilding app container..." -ForegroundColor Yellow
 docker-compose build app
 Write-Host "  App container rebuilt" -ForegroundColor Green
+
+Write-Host ""
+Write-Host "Rebuilding UI container..." -ForegroundColor Yellow 
+docker-compose build ui
+Write-Host "  UI container rebuilt" -ForegroundColor Green
 
 # Start all services
 Write-Host ""
@@ -33,8 +38,9 @@ docker-compose ps
 Write-Host ""
 Write-Host "Rebuild process completed!" -ForegroundColor Green
 Write-Host ""
-Write-Host "If the app container is still failing, check the logs with:" -ForegroundColor Cyan
+Write-Host "If containers are still failing, check the logs with:" -ForegroundColor Cyan
 Write-Host "  docker-compose logs app" -ForegroundColor White
+Write-Host "  docker-compose logs ui" -ForegroundColor White
 Write-Host ""
 Write-Host "Access points:" -ForegroundColor Cyan
 Write-Host "  API Documentation: http://localhost:8000/docs" -ForegroundColor White

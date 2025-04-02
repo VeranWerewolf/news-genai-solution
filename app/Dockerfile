@@ -17,10 +17,6 @@ RUN pip install -r requirements.txt
 # Copy application code
 COPY . .
 
-# Create healthcheck endpoint
-RUN echo 'from fastapi import FastAPI, APIRouter\nrouter = APIRouter()\n@router.get("/health")\ndef health_check():\n    return {"status": "ok"}' > src/api/health.py
-RUN echo 'from .main import app\nfrom .health import router\napp.include_router(router)' >> src/api/__init__.py
-
 # Expose the application port
 EXPOSE 8000
 

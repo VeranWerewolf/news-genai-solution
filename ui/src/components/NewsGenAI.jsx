@@ -10,6 +10,9 @@ const NewsGenAI = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState('');
 
+  // API base URL from environment or default
+  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+
   // Function to process and store URLs
   const handleProcessUrls = async () => {
     // Split URLs by newline and filter out empty strings
@@ -24,7 +27,7 @@ const NewsGenAI = () => {
     setMessage('Processing URLs...');
 
     try {
-      const response = await fetch('http://localhost:8000/store', {
+      const response = await fetch(`${API_BASE_URL}/store`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -59,7 +62,7 @@ const NewsGenAI = () => {
     setMessage('Searching...');
 
     try {
-      const response = await fetch('http://localhost:8000/search', {
+      const response = await fetch(`${API_BASE_URL}/search`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

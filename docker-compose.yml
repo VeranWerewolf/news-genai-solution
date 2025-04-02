@@ -16,6 +16,7 @@ services:
       - VECTOR_DB_HOST=vector-db
       - VECTOR_DB_PORT=6333
       - LLM_API_URL=http://ollama:11434/api
+      - ALLOWED_ORIGINS=http://localhost:3000
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -115,7 +116,7 @@ services:
     networks:
       - news-network
     environment:
-      - API_URL=http://app:8000
+      - REACT_APP_API_URL=http://localhost:8000
 
 networks:
   news-network:
