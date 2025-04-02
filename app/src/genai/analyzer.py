@@ -1,18 +1,33 @@
 from typing import Dict, Any, List, Tuple
 import os
-from langchain.llms import OpenAI
+import logging
 from langchain.prompts import PromptTemplate
 from langchain.chains import LLMChain
 
+from .llm_client import OllamaLLM, OllamaChat
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class ArticleAnalyzer:
     """Uses GenAI to analyze news articles and generate summaries and topics."""
     
-    def __init__(self):
-        """Initialize the article analyzer with LLM."""
-        # Initialize the LLM
-        api_key = os.getenv("OPENAI_API_KEY")
-        self.llm = OpenAI(openai_api_key=api_key, temperature=0.1)
+    def __init__(self, model_name: str = "llama3"):
+        """Initialize the article analyzer with LLM.
+        
+        Args:
+            model_name: Name of the Ollama model to use
+        """
+        # Initialize the Ollama LLM
+        try:
+            self.llm = OllamaLLM(model_name=model_name, temperature=0.1)
+            logger.info(f"Initialized OllamaLLM with model {model_name}")
+        except Exception as e:
+            logger.error(f"Failed to initialize OllamaLLM: {e}")
+            # Fallback to direct implementation if LangChain integration fails
+            self.llm = OllamaChat(model_name=model_name, temperature=0.1)
+            logger.info(f"Fallback to OllamaChat with model {model_name}")
         
         # Create prompt templates
         self.summary_prompt = PromptTemplate(
@@ -58,24 +73,44 @@ class ArticleAnalyzer:
         Returns:
             Original article with added summary and topics
         """
-        # Generate summary
-        summary = self.summary_chain.run(
-            title=article['title'],
-            text=article['text'][:4000]  # Limit text length for API
-        )
+        # Check if article text is too long and truncate if necessary
+        # Ollama has context limits, so we'll truncate to be safe
+        text = article['text'][:2000] if len(article['text']) > 2000 else article['text']
         
-        # Extract topics
-        topics_text = self.topics_chain.run(
-            title=article['title'],
-            text=article['text'][:4000]  # Limit text length for API
-        )
-        
-        # Parse topics into a list
-        topics = [topic.strip() for topic in topics_text.split('\n') if topic.strip()]
-        
-        # Add analysis to article
-        article['summary'] = summary.strip()
-        article['topics'] = topics
+        try:
+            # Generate summary
+            summary = self.summary_chain.run(
+                title=article['title'],
+                text=text
+            )
+            
+            # Extract topics
+            topics_text = self.topics_chain.run(
+                title=article['title'],
+                text=text
+            )
+            
+            # Parse topics into a list
+            topics = [topic.strip() for topic in topics_text.split('\n') if topic.strip()]
+            
+            # Clean up topics - sometimes the model outputs numbered lists
+            cleaned_topics = []
+            for topic in topics:
+                # Remove numbering if present (e.g., "1. Politics" -> "Politics")
+                if '. ' in topic and topic[0].isdigit():
+                    topic = topic.split('. ', 1)[1]
+                cleaned_topics.append(topic)
+            
+            # Add analysis to article
+            article['summary'] = summary.strip()
+            article['topics'] = cleaned_topics[:7]  # Ensure max 7 topics
+            
+            logger.info(f"Successfully analyzed article: {article['title']}")
+        except Exception as e:
+            logger.error(f"Error analyzing article {article.get('title', 'Unknown')}: {e}")
+            # Provide fallback values
+            article['summary'] = "Summary generation failed."
+            article['topics'] = ["news"]
         
         return article
         
