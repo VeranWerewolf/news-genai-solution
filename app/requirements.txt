@@ -1,14 +1,12 @@
 # Web scraping
-newspaper3k==0.2.8
 trafilatura==1.6.0
 beautifulsoup4==4.12.2
-lxml[html_clean]
+requests==2.31.0
 
 # GenAI
 langchain==0.0.267
 langchain-community==0.0.16
 langchain-core>=0.1.16
-requests==2.31.0
 
 # Embeddings
 sentence-transformers==2.2.2
