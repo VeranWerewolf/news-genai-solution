@@ -336,13 +336,18 @@ class VectorDatabase:
                         )
                     
                     # Search in Qdrant
-                    vector_results = self.client.search(
-                        collection_name="news_articles",
-                        query_vector=query_embedding,
-                        limit=limit,
-                        filter=search_filter,
-                        score_threshold=0.5  # Set a relevance threshold
-                    )
+                    search_params = {
+                        "collection_name": "news_articles",
+                        "query_vector": query_embedding,
+                        "limit": limit,
+                        "score_threshold": 0.5  # Set a relevance threshold
+                    }
+                    
+                    # Only add filter if it exists
+                    if search_filter is not None:
+                        search_params["filter"] = search_filter
+                    
+                    vector_results = self.client.search(**search_params)
                     
                     # Extract articles from results
                     all_results.extend([point.payload for point in vector_results])
@@ -417,13 +422,13 @@ class VectorDatabase:
                         if text_conditions:
                             filter_conditions.append(
                                 models.Filter(
-                                    should=text_conditions,
-                                    min_should=1  # At least one should match
+                                    should=text_conditions
                                 )
                             )
                         
                         # Only perform search if we have filter conditions
                         if filter_conditions:
+                            combined_filter = None
                             if len(filter_conditions) > 1:
                                 combined_filter = models.Filter(
                                     must=filter_conditions
@@ -432,13 +437,18 @@ class VectorDatabase:
                                 combined_filter = filter_conditions[0]
                             
                             # Perform the keyword search
-                            keyword_results = self.client.scroll(
-                                collection_name="news_articles",
-                                filter=combined_filter,
-                                limit=limit,
-                                with_payload=True,
-                                with_vectors=False
-                            )
+                            scroll_params = {
+                                "collection_name": "news_articles",
+                                "limit": limit,
+                                "with_payload": True,
+                                "with_vectors": False
+                            }
+                            
+                            # Only add filter if it exists
+                            if combined_filter is not None:
+                                scroll_params["filter"] = combined_filter
+                            
+                            keyword_results = self.client.scroll(**scroll_params)
                             
                             # Extract articles from results
                             if keyword_results and keyword_results[0]:
@@ -580,17 +590,23 @@ class VectorDatabase:
                 )
                 
                 # Search for articles with these topics
-                results = self.client.scroll(
-                    collection_name="news_articles",
-                    filter=search_filter,
-                    limit=limit,
-                    with_payload=True,
-                    with_vectors=False
-                )
+                scroll_params = {
+                    "collection_name": "news_articles",
+                    "limit": limit,
+                    "with_payload": True,
+                    "with_vectors": False
+                }
+                
+                # Add filter to parameters
+                scroll_params["filter"] = search_filter
+                
+                keyword_results = self.client.scroll(**scroll_params)
                 
                 # Extract articles from results
-                articles = [point.payload for point in results[0]]
-                return articles
+                if keyword_results and keyword_results[0]:
+                    articles = [point.payload for point in keyword_results[0]]
+                    return articles
+                return []
                 
             return []
             
