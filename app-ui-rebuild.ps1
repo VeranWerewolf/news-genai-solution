@@ -41,7 +41,6 @@ Write-Host "Access points:" -ForegroundColor Cyan
 Write-Host "  API Documentation: http://localhost:8000/docs" -ForegroundColor White
 Write-Host "  User Interface: http://localhost:3000" -ForegroundColor White
 Write-Host "  Vector Database UI: http://localhost:6333/dashboard" -ForegroundColor White
-Write-Host "  Grafana Monitoring: http://localhost:3001" -ForegroundColor White
 
 # Keep console open
 Read-Host -Prompt "Press Enter to exit"

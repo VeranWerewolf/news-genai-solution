@@ -29,8 +29,7 @@ Write-Host "Creating necessary directories..." -ForegroundColor Yellow
 $directories = @(
     "vector-db/persistence",
     "vector-db/snapshots",
-    "vector-db/config",
-    "grafana-data"
+    "vector-db/config"
 )
 
 foreach ($dir in $directories) {
@@ -228,7 +227,6 @@ Write-Host "Access points:" -ForegroundColor Cyan
 Write-Host "  API Documentation: http://localhost:8000/docs" -ForegroundColor White
 Write-Host "  User Interface: http://localhost:3000" -ForegroundColor White
 Write-Host "  Vector Database UI: http://localhost:6333/dashboard" -ForegroundColor White
-Write-Host "  Grafana Monitoring: http://localhost:3001" -ForegroundColor White
 Write-Host ""
 Write-Host "Note: The first request to the API might take longer as the Llama3 model initializes." -ForegroundColor Yellow
 
