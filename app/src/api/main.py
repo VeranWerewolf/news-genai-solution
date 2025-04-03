@@ -74,12 +74,19 @@ class SearchRequest(BaseModel):
     query: str
     enhance: bool = True
     limit: int = 5
+    topics: Optional[List[str]] = None
 
 class ArticleResponse(BaseModel):
     url: str
     title: str
     summary: Optional[str] = None
     topics: Optional[List[str]] = None
+    source: Optional[str] = None
+    date: Optional[str] = None
+
+class TopicResponse(BaseModel):
+    topic: str
+    count: int
 
 # API routes
 @app.get("/")
@@ -162,8 +169,58 @@ async def search_articles(request: SearchRequest):
             limit=request.limit
         )
         
+        # Filter by topics if provided
+        if request.topics and len(request.topics) > 0:
+            results = [
+                article for article in results
+                if any(topic in article.get('topics', []) for topic in request.topics)
+            ]
+        
         logger.info(f"Search returned {len(results)} results")
         return results
     except Exception as e:
         logger.error(f"Error searching articles: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+        
+@app.post("/topics", response_model=List[str])
+async def search_topics(request: SearchRequest):
+    """Search for topics similar to the query."""
+    try:
+        logger.info(f"Searching for topics with query: '{request.query}'")
+        # Perform search
+        topics = semantic_search.vector_db.search_topics(
+            query=request.query,
+            limit=request.limit
+        )
+        
+        logger.info(f"Topic search returned {len(topics)} results")
+        return topics
+    except Exception as e:
+        logger.error(f"Error searching topics: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/articles/by-topic/{topic}", response_model=List[ArticleResponse])
+async def get_articles_by_topic(topic: str, limit: int = 10):
+    """Get articles with a specific topic."""
+    try:
+        logger.info(f"Getting articles with topic: '{topic}'")
+        articles = vector_db.get_articles_by_topics([topic], limit=limit)
+        
+        logger.info(f"Found {len(articles)} articles with topic '{topic}'")
+        return articles
+    except Exception as e:
+        logger.error(f"Error getting articles by topic: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/articles/similar/{article_id}", response_model=List[ArticleResponse])
+async def get_similar_articles(article_id: str, limit: int = 5):
+    """Get articles similar to the given article ID."""
+    try:
+        logger.info(f"Getting articles similar to '{article_id}'")
+        articles = vector_db.get_similar_articles(article_id, limit=limit)
+        
+        logger.info(f"Found {len(articles)} similar articles")
+        return articles
+    except Exception as e:
+        logger.error(f"Error getting similar articles: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

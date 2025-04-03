@@ -13,8 +13,15 @@ This solution uses a microservices architecture with Docker containers:
 - Application container: Core functionality for scraping and AI processing
 - Ollama container: Runs the Llama3 model locally
 - Vector database container: Stores article embeddings and metadata
-- PostgreSQL container: Stores article metadata
-- UI container: Optional web interface for demonstration
+- UI container: Web interface for demonstration
+
+## Technical Details
+- **News Extraction**: Custom Python scraper using BeautifulSoup for content extraction
+- **GenAI Analysis**: Locally-hosted Llama3 model via Ollama for summarization and topic extraction
+- **Vector Storage**: Qdrant vector database for efficient semantic search
+- **Embeddings**: Sentence Transformers for creating vector embeddings
+- **API Layer**: FastAPI for REST endpoints
+- **UI**: React.js with Tailwind CSS
 
 ## Prerequisites
 - Docker and Docker Compose
@@ -33,11 +40,12 @@ cd news-genai-solution
 The setup script will download the Llama3 model via Ollama:
 
 ```bash
-# Make the script executable
-chmod +x setup_ollama.sh
+# For Windows:
+./initialize-news-genai.ps1
 
-# Run the setup script
-./setup_ollama.sh
+# For Linux/Mac:
+chmod +x setup-ollama.sh
+./setup-ollama.sh
 ```
 
 ### 3. Start the services
@@ -51,8 +59,7 @@ This will start all the required containers:
 - ollama: The Ollama service running the Llama3 model locally
 - app: The FastAPI application for news extraction and analysis
 - vector-db: Qdrant vector database for semantic search
-- postgres-db: PostgreSQL database for metadata storage
-- ui: The user interface (optional)
+- ui: The user interface
 
 ### 4. Access the services
 - API: http://localhost:8000
@@ -86,6 +93,24 @@ Extracts, analyzes, and stores articles in the vector database for later retriev
 POST /search
 ```
 Searches for articles using semantic search powered by sentence transformers embeddings and Llama3 query enhancement.
+
+### Find Topics
+```
+POST /topics
+```
+Searches for topics related to the query.
+
+### Get Articles by Topic
+```
+GET /articles/by-topic/{topic}
+```
+Retrieves articles tagged with a specific topic.
+
+### Get Similar Articles
+```
+GET /articles/similar/{article_id}
+```
+Finds articles that are semantically similar to the given article.
 
 ## Using GPU Acceleration (Optional)
 
@@ -123,6 +148,18 @@ sudo systemctl restart docker
 ### API Connection Issues
 - Ensure all containers are running with `docker-compose ps`
 - Check application logs: `docker logs news-genai-solution_app_1`
+
+### Network Debugging
+For Windows:
+```
+./debug-network.ps1
+```
+
+For Linux/Mac:
+```
+chmod +x debug-network.sh
+./debug-network.sh
+```
 
 ## License
 MIT License - see LICENSE file for details

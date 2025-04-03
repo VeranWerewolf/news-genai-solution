@@ -1,6 +1,6 @@
-# Rebuild News GenAI App and UI Containers Script
+# Rebuild News GenAI App with Vector DB Only Setup
 
-Write-Host "=== Rebuilding News GenAI App and UI Containers ===" -ForegroundColor Cyan
+Write-Host "=== Rebuilding News GenAI Solution (Vector DB Only) ===" -ForegroundColor Cyan
 Write-Host ""
 
 # Stop all containers
@@ -8,16 +8,11 @@ Write-Host "Stopping all containers..." -ForegroundColor Yellow
 docker-compose down
 Write-Host "  All containers stopped" -ForegroundColor Green
 
-# Rebuild the app and UI containers
+# Rebuild the app container
 Write-Host ""
 Write-Host "Rebuilding app container..." -ForegroundColor Yellow
 docker-compose build app
 Write-Host "  App container rebuilt" -ForegroundColor Green
-
-Write-Host ""
-Write-Host "Rebuilding UI container..." -ForegroundColor Yellow 
-docker-compose build ui
-Write-Host "  UI container rebuilt" -ForegroundColor Green
 
 # Start all services
 Write-Host ""
@@ -28,7 +23,7 @@ Write-Host "  All services started" -ForegroundColor Green
 # Wait a bit for services to initialize
 Write-Host ""
 Write-Host "Waiting for services to initialize..." -ForegroundColor Yellow
-Start-Sleep -Seconds 5
+Start-Sleep -Seconds 10
 
 # Check container status
 Write-Host ""
@@ -45,6 +40,8 @@ Write-Host ""
 Write-Host "Access points:" -ForegroundColor Cyan
 Write-Host "  API Documentation: http://localhost:8000/docs" -ForegroundColor White
 Write-Host "  User Interface: http://localhost:3000" -ForegroundColor White
+Write-Host "  Vector Database UI: http://localhost:6333/dashboard" -ForegroundColor White
+Write-Host "  Grafana Monitoring: http://localhost:3001" -ForegroundColor White
 
 # Keep console open
 Read-Host -Prompt "Press Enter to exit"

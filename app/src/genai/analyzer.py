@@ -37,8 +37,11 @@ class ArticleAnalyzer:
             
             Article Content: {text}
             
-            Task: Generate a concise summary of the above news article that captures all key points.
-            The summary should be 3-5 sentences long and highlight the most important information.
+            Task: Step-by-step, identify the main points of the following academic article, explaining their significance as you go. 
+            Summarize the following text in one clear and concise paragraph, capturing the key ideas without missing critical points.
+            Ensure the summary is easy to understand and avoids excessive detail.
+            The summary should be 3-5 sentences long and highlight the most important information. 
+            Return only the summary without results of the thinking process.
             
             Summary:
             """

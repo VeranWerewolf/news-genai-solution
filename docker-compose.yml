@@ -10,7 +10,6 @@ services:
     depends_on:
       - vector-db
       - ollama
-      - postgres-db
     networks:
       - news-network
     environment:
@@ -18,11 +17,6 @@ services:
       - VECTOR_DB_PORT=6333
       - LLM_API_URL=http://ollama:11434
       - ALLOWED_ORIGINS=http://localhost:3000,http://ui:3000
-      - POSTGRES_HOST=postgres-db
-      - POSTGRES_PORT=5432
-      - POSTGRES_USER=newsadmin
-      - POSTGRES_PASSWORD=newspassword
-      - POSTGRES_DB=newsdata
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
@@ -47,14 +41,13 @@ services:
       timeout: 10s
       retries: 5
       start_period: 60s
-    # Use the following commented section if you want to enable GPU support
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: 1
-    #           capabilities: [gpu]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
 
   vector-db:
     image: qdrant/qdrant:latest
@@ -79,28 +72,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 20s
-
-  # Optional: Add Postgres for metadata storage alongside vectors
-  postgres-db:
-    image: postgres:14-alpine
-    container_name: news-postgres
-    environment:
-      - POSTGRES_USER=newsadmin
-      - POSTGRES_PASSWORD=newspassword
-      - POSTGRES_DB=newsdata
-    volumes:
-      - ./postgres-data:/var/lib/postgresql/data
-      - ./init-scripts:/docker-entrypoint-initdb.d
-    ports:
-      - "5432:5432"
-    networks:
-      - news-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U newsadmin -d newsdata"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   # Optional: Add monitoring with Grafana
   grafana:

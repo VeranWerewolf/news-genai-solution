@@ -3,12 +3,10 @@ import os
 import uuid
 import hashlib
 import logging
-import psycopg2
-from psycopg2.extras import execute_values
-from langchain.vectorstores import Chroma
 from qdrant_client import QdrantClient
 from qdrant_client.http import models
 from qdrant_client.http.exceptions import UnexpectedResponse
+from langchain.vectorstores import Chroma
 
 # Import local embeddings
 from ..genai.embeddings import LocalSentenceTransformerEmbeddings
@@ -16,172 +14,6 @@ from ..genai.embeddings import LocalSentenceTransformerEmbeddings
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-
-class PostgresClient:
-    """Client for PostgreSQL database to store article metadata."""
-    
-    def __init__(self):
-        """Initialize the PostgreSQL client."""
-        self.connection_params = {
-            'dbname': os.getenv('POSTGRES_DB', 'newsdata'),
-            'user': os.getenv('POSTGRES_USER', 'newsadmin'),
-            'password': os.getenv('POSTGRES_PASSWORD', 'newspassword'),
-            'host': os.getenv('POSTGRES_HOST', 'postgres-db'),
-            'port': os.getenv('POSTGRES_PORT', '5432')
-        }
-        self.connection = None
-        
-    def connect(self):
-        """Establish connection to PostgreSQL."""
-        try:
-            self.connection = psycopg2.connect(**self.connection_params)
-            logger.info("Connected to PostgreSQL database")
-            return self.connection
-        except Exception as e:
-            logger.error(f"Error connecting to PostgreSQL: {e}")
-            raise
-            
-    def close(self):
-        """Close the database connection."""
-        if self.connection:
-            self.connection.close()
-            self.connection = None
-            
-    def __enter__(self):
-        """Context manager entry."""
-        self.connect()
-        return self
-        
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """Context manager exit."""
-        self.close()
-        
-    def store_article_metadata(self, article: Dict[str, Any], article_id: str) -> None:
-        """
-        Store article metadata in PostgreSQL.
-        
-        Args:
-            article: Article data dictionary
-            article_id: ID of the article
-        """
-        if not self.connection:
-            self.connect()
-            
-        try:
-            cursor = self.connection.cursor()
-            
-            # Store article data
-            cursor.execute("""
-                INSERT INTO articles (id, url, title, summary, source, published_date)
-                VALUES (%s, %s, %s, %s, %s, %s)
-                ON CONFLICT (id) DO UPDATE
-                SET title = EXCLUDED.title,
-                    summary = EXCLUDED.summary,
-                    updated_at = CURRENT_TIMESTAMP
-            """, (
-                article_id,
-                article.get('url', ''),
-                article.get('title', ''),
-                article.get('summary', ''),
-                article.get('source', ''),
-                article.get('date')
-            ))
-            
-            # Store topics
-            if 'topics' in article and article['topics']:
-                # First, ensure all topics exist
-                topic_values = [(topic,) for topic in article['topics']]
-                execute_values(
-                    cursor,
-                    "INSERT INTO topics (name) VALUES %s ON CONFLICT (name) DO NOTHING",
-                    topic_values
-                )
-                
-                # Get topic IDs
-                cursor.execute(
-                    "SELECT id, name FROM topics WHERE name = ANY(%s)",
-                    (article['topics'],)
-                )
-                topic_ids = {name: id for id, name in cursor.fetchall()}
-                
-                # Link articles to topics
-                article_topic_values = [
-                    (article_id, topic_ids[topic])
-                    for topic in article['topics']
-                    if topic in topic_ids
-                ]
-                
-                if article_topic_values:
-                    execute_values(
-                        cursor,
-                        """
-                        INSERT INTO article_topics (article_id, topic_id)
-                        VALUES %s
-                        ON CONFLICT (article_id, topic_id) DO NOTHING
-                        """,
-                        article_topic_values
-                    )
-            
-            self.connection.commit()
-            logger.info(f"Stored metadata for article {article_id}")
-            
-        except Exception as e:
-            self.connection.rollback()
-            logger.error(f"Error storing article metadata: {e}")
-            raise
-        finally:
-            cursor.close()
-            
-    def get_articles_by_topics(self, topics: List[str], limit: int = 10) -> List[Dict[str, Any]]:
-        """
-        Get articles that have the specified topics.
-        
-        Args:
-            topics: List of topic names
-            limit: Maximum number of articles to return
-            
-        Returns:
-            List of article dictionaries
-        """
-        if not self.connection:
-            self.connect()
-            
-        try:
-            cursor = self.connection.cursor()
-            
-            cursor.execute("""
-                SELECT a.id, a.url, a.title, a.summary, a.source, a.published_date,
-                       array_agg(t.name) as topics
-                FROM articles a
-                JOIN article_topics at ON a.id = at.article_id
-                JOIN topics t ON at.topic_id = t.id
-                WHERE t.name = ANY(%s)
-                GROUP BY a.id, a.url, a.title, a.summary, a.source, a.published_date
-                ORDER BY a.published_date DESC
-                LIMIT %s
-            """, (topics, limit))
-            
-            articles = []
-            for row in cursor.fetchall():
-                articles.append({
-                    'id': row[0],
-                    'url': row[1],
-                    'title': row[2],
-                    'summary': row[3],
-                    'source': row[4],
-                    'date': row[5],
-                    'topics': row[6]
-                })
-                
-            return articles
-            
-        except Exception as e:
-            logger.error(f"Error getting articles by topics: {e}")
-            raise
-        finally:
-            cursor.close()
-
 
 class VectorDatabase:
     """Interface for storing and retrieving vectorized article data."""
@@ -196,7 +28,6 @@ class VectorDatabase:
         self.db_type = db_type
         # Use local sentence transformer embeddings
         self.embeddings = LocalSentenceTransformerEmbeddings()
-        self.postgres = PostgresClient()
         
         # Define embedding dimensions based on the model
         self.embedding_dim = 384  # Default dimension for all-MiniLM-L6-v2
@@ -302,6 +133,21 @@ class VectorDatabase:
                 # Get embedding
                 embedding = self.embeddings.embed_query(combined_text)
                 
+                # Create full payload with all article metadata
+                payload = {
+                    'id': article_id,
+                    'title': article.get('title', ''),
+                    'summary': article.get('summary', ''),
+                    'text': article.get('text', ''),
+                    'topics': article.get('topics', []),
+                    'url': article.get('url', ''),
+                    'source': article.get('source', ''),
+                    'authors': article.get('authors', []),
+                    'date': str(article.get('date', '')),
+                    'created_at': article.get('created_at', ''),
+                    'updated_at': article.get('updated_at', '')
+                }
+                
                 # Store in Qdrant
                 self.client.upsert(
                     collection_name="news_articles",
@@ -309,12 +155,7 @@ class VectorDatabase:
                         models.PointStruct(
                             id=article_id,
                             vector=embedding,
-                            payload={
-                                'title': article.get('title', ''),
-                                'summary': article.get('summary', ''),
-                                'topics': article.get('topics', []),
-                                'url': article.get('url', '')
-                            }
+                            payload=payload
                         )
                     ]
                 )
@@ -325,19 +166,63 @@ class VectorDatabase:
                         topic_embedding = self.embeddings.embed_query(topic)
                         topic_id = hashlib.md5(topic.encode()).hexdigest()
                         
-                        self.client.upsert(
-                            collection_name="news_topics",
-                            points=[
-                                models.PointStruct(
-                                    id=topic_id,
-                                    vector=topic_embedding,
-                                    payload={
-                                        'topic': topic,
-                                        'articles': [article_id]
-                                    }
+                        # Check if topic already exists
+                        try:
+                            existing_topic = self.client.retrieve(
+                                collection_name="news_topics",
+                                ids=[topic_id]
+                            )
+                            
+                            if existing_topic:
+                                # Update existing topic with new article reference
+                                existing_articles = existing_topic[0].payload.get('articles', [])
+                                if article_id not in existing_articles:
+                                    existing_articles.append(article_id)
+                                    
+                                self.client.upsert(
+                                    collection_name="news_topics",
+                                    points=[
+                                        models.PointStruct(
+                                            id=topic_id,
+                                            vector=topic_embedding,
+                                            payload={
+                                                'topic': topic,
+                                                'articles': existing_articles
+                                            }
+                                        )
+                                    ]
                                 )
-                            ]
-                        )
+                            else:
+                                # Create new topic
+                                self.client.upsert(
+                                    collection_name="news_topics",
+                                    points=[
+                                        models.PointStruct(
+                                            id=topic_id,
+                                            vector=topic_embedding,
+                                            payload={
+                                                'topic': topic,
+                                                'articles': [article_id]
+                                            }
+                                        )
+                                    ]
+                                )
+                        except Exception as e:
+                            # Create new topic if retrieval fails
+                            logger.warning(f"Error retrieving topic, creating new: {e}")
+                            self.client.upsert(
+                                collection_name="news_topics",
+                                points=[
+                                    models.PointStruct(
+                                        id=topic_id,
+                                        vector=topic_embedding,
+                                        payload={
+                                            'topic': topic,
+                                            'articles': [article_id]
+                                        }
+                                    )
+                                ]
+                            )
                 
             elif self.db_type == "chroma":
                 # Store in ChromaDB
@@ -346,12 +231,6 @@ class VectorDatabase:
                     metadatas=[article],
                     ids=[article_id]
                 )
-            
-            # Store metadata in PostgreSQL
-            try:
-                self.postgres.store_article_metadata(article, article_id)
-            except Exception as e:
-                logger.warning(f"Failed to store metadata in PostgreSQL: {e}")
                 
             return article_id
             
@@ -414,13 +293,6 @@ class VectorDatabase:
                         )
                     ]
                 )
-                
-                # Update in PostgreSQL
-                try:
-                    with self.postgres as pg:
-                        pg.store_article_metadata(article, article_id)
-                except Exception as e:
-                    logger.warning(f"Failed to update metadata in PostgreSQL: {e}")
                 
                 return True
                 
@@ -568,4 +440,46 @@ class VectorDatabase:
             
         except Exception as e:
             logger.error(f"Error getting similar articles: {e}")
+            return []
+            
+    def get_articles_by_topics(self, topics: List[str], limit: int = 10) -> List[Dict[str, Any]]:
+        """
+        Get articles that have the specified topics.
+        
+        Args:
+            topics: List of topic names
+            limit: Maximum number of articles to return
+            
+        Returns:
+            List of article dictionaries
+        """
+        try:
+            if self.db_type == "qdrant":
+                # Create filter for topics
+                search_filter = models.Filter(
+                    must=[
+                        models.FieldCondition(
+                            key="topics",
+                            match=models.MatchAny(any=topics)
+                        )
+                    ]
+                )
+                
+                # Search for articles with these topics
+                results = self.client.scroll(
+                    collection_name="news_articles",
+                    filter=search_filter,
+                    limit=limit,
+                    with_payload=True,
+                    with_vectors=False
+                )
+                
+                # Extract articles from results
+                articles = [point.payload for point in results[0]]
+                return articles
+                
+            return []
+            
+        except Exception as e:
+            logger.error(f"Error getting articles by topics: {e}")
             return []

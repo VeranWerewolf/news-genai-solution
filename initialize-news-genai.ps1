@@ -30,7 +30,6 @@ $directories = @(
     "vector-db/persistence",
     "vector-db/snapshots",
     "vector-db/config",
-    "postgres-data",
     "grafana-data"
 )
 
