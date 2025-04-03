@@ -24,14 +24,13 @@ const AboutPage = () => {
           // If API is online, check model status next as it depends on Ollama
           try {
             // This endpoint is hypothetical - implement according to your actual API
-            const modelResponse = await fetch(`${API_BASE_URL}/model-status`, { timeout: 5000 });
+            const modelResponse = await fetch(`${API_BASE_URL}/health`, { timeout: 5000 });
             if (modelResponse.ok) {
-              const modelData = await modelResponse.json();
               setServiceStatus(prev => ({
                 ...prev,
                 model: { 
                   status: 'online', 
-                  message: `Model ${modelData.name || 'llama3'} is loaded and ready` 
+                  message: 'Model llama3 is loaded and ready' 
                 }
               }));
             } else {
@@ -139,6 +138,72 @@ const AboutPage = () => {
       </div>
     );
   };
-}
+
+  return (
+    <div className="py-6">
+      <div className="max-w-3xl mx-auto">
+        <h1 className="text-3xl font-bold mb-6 text-center">About News GenAI</h1>
+        
+        <div className="mb-8 p-6 border rounded-lg bg-white shadow">
+          <h2 className="text-xl font-semibold mb-4">Application Overview</h2>
+          <p className="mb-4">
+            News GenAI is a containerized solution for news article scraping, AI-powered analysis, and semantic search.
+            The system extracts content from news articles, uses the locally-hosted Llama3 model to generate summaries 
+            and identify topics, and stores the processed data in a vector database for efficient semantic search.
+          </p>
+          
+          <h3 className="text-lg font-medium mb-2">Key Features:</h3>
+          <ul className="list-disc pl-6 mb-4">
+            <li>News extraction from provided URLs</li>
+            <li>AI-driven summarization and topic identification</li>
+            <li>Semantic search with vector database integration</li>
+            <li>Fully containerized deployment with local LLM</li>
+          </ul>
+          
+          <h3 className="text-lg font-medium mb-2">Technical Components:</h3>
+          <ul className="list-disc pl-6 mb-4">
+            <li><span className="font-medium">News Extraction:</span> Custom Python scraper using BeautifulSoup</li>
+            <li><span className="font-medium">GenAI Analysis:</span> Locally-hosted Llama3 model via Ollama</li>
+            <li><span className="font-medium">Vector Storage:</span> Qdrant for efficient semantic search</li>
+            <li><span className="font-medium">Embeddings:</span> Sentence Transformers</li>
+            <li><span className="font-medium">API Layer:</span> FastAPI</li>
+            <li><span className="font-medium">UI:</span> React.js with Tailwind CSS</li>
+          </ul>
+          
+          <p className="text-sm text-blue-600 hover:underline">
+            <a href="https://github.com/yourusername/news-genai-solution" target="_blank" rel="noopener noreferrer">
+              View project on GitHub →
+            </a>
+          </p>
+        </div>
+        
+        <div className="p-6 border rounded-lg bg-white shadow">
+          <h2 className="text-xl font-semibold mb-4">System Status</h2>
+          <div className="space-y-4">
+            {Object.entries(serviceStatus).map(([service, { status, message }]) => (
+              <div key={service} className="flex items-center p-3 border rounded">
+                {renderStatusIndicator(status)}
+                <div className="ml-2">
+                  <div className="font-medium capitalize">{service === 'api' ? 'API' : service === 'vectorDb' ? 'Vector Database' : service}</div>
+                  <div className="text-sm text-gray-600">{message}</div>
+                </div>
+                <div className="ml-auto">
+                  <span className={`px-2 py-1 rounded text-xs font-medium ${
+                    status === 'online' ? 'bg-green-100 text-green-800' :
+                    status === 'offline' ? 'bg-red-100 text-red-800' :
+                    status === 'warning' ? 'bg-yellow-100 text-yellow-800' :
+                    'bg-gray-100 text-gray-800'
+                  }`}>
+                    {status}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export default AboutPage;

@@ -1,23 +1,33 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
+import { useAppContext } from '../context/AppContext';
 
 const UploadPage = () => {
-  const [urls, setUrls] = useState('');
-  const [processedUrls, setProcessedUrls] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [message, setMessage] = useState('');
-  const [uploadStatus, setUploadStatus] = useState({});
-  const [currentStage, setCurrentStage] = useState('');
-  const [urlsToProcess, setUrlsToProcess] = useState([]);
-  const [processedCount, setProcessedCount] = useState(0);
-  const [failedUrls, setFailedUrls] = useState([]);
-
-  // API base URL from environment or default
-  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+  const {
+    urls,
+    setUrls,
+    processedUrls,
+    setProcessedUrls,
+    isUploadLoading,
+    setIsUploadLoading,
+    uploadMessage,
+    setUploadMessage,
+    uploadStatus,
+    setUploadStatus,
+    currentStage,
+    setCurrentStage,
+    urlsToProcess,
+    setUrlsToProcess,
+    processedCount,
+    setProcessedCount,
+    failedUrls,
+    setFailedUrls,
+    API_BASE_URL
+  } = useAppContext();
 
   // Process URLs one by one to provide better feedback
   useEffect(() => {
     const processNextUrl = async () => {
-      if (urlsToProcess.length === 0 || !isLoading) return;
+      if (urlsToProcess.length === 0 || !isUploadLoading) return;
       
       const url = urlsToProcess[0];
       const remainingUrls = urlsToProcess.slice(1);
@@ -89,20 +99,20 @@ const UploadPage = () => {
       if (remainingUrls.length > 0) {
         setUrlsToProcess(remainingUrls);
       } else {
-        setIsLoading(false);
+        setIsUploadLoading(false);
         setCurrentStage('complete');
         
         // Set final message
         if (failedUrls.length === 0) {
-          setMessage(`Successfully processed all ${processedCount + 1} articles`);
+          setUploadMessage(`Successfully processed all ${processedCount + 1} articles`);
         } else {
-          setMessage(`Processed ${processedCount + 1} articles. Failed: ${failedUrls.length}`);
+          setUploadMessage(`Processed ${processedCount + 1} articles. Failed: ${failedUrls.length}`);
         }
       }
     };
 
     processNextUrl();
-  }, [urlsToProcess, isLoading, processedCount, failedUrls, API_BASE_URL]);
+  }, [urlsToProcess, isUploadLoading, API_BASE_URL, failedUrls, processedCount, setCurrentStage, setFailedUrls, setIsUploadLoading, setProcessedCount, setProcessedUrls, setUploadMessage, setUploadStatus, setUrlsToProcess]);
 
   // Function to process and store URLs
   const handleProcessUrls = async () => {
@@ -110,13 +120,13 @@ const UploadPage = () => {
     const urlList = urls.split('\n').filter(url => url.trim() !== '');
     
     if (urlList.length === 0) {
-      setMessage('Please enter at least one valid URL.');
+      setUploadMessage('Please enter at least one valid URL.');
       return;
     }
 
     // Reset states
-    setIsLoading(true);
-    setMessage(`Starting to process ${urlList.length} URLs...`);
+    setIsUploadLoading(true);
+    setUploadMessage(`Starting to process ${urlList.length} URLs...`);
     setProcessedUrls([]);
     setFailedUrls([]);
     setProcessedCount(0);
@@ -196,27 +206,27 @@ const UploadPage = () => {
               onChange={(e) => setUrls(e.target.value)}
               className="w-full p-3 border rounded h-40 focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="https://example.com/article1&#10;https://example.com/article2"
-              disabled={isLoading}
+              disabled={isUploadLoading}
             />
           </div>
           <button
             onClick={handleProcessUrls}
-            disabled={isLoading}
+            disabled={isUploadLoading}
             className="bg-blue-600 text-white px-6 py-3 rounded hover:bg-blue-700 disabled:bg-blue-300 transition-colors"
           >
-            {isLoading ? 'Processing...' : 'Process and Store'}
+            {isUploadLoading ? 'Processing...' : 'Process and Store'}
           </button>
         </div>
         
         {/* Processing Stages Indicator */}
-        {isLoading && renderProcessStages()}
+        {isUploadLoading && renderProcessStages()}
         
         {/* Status Message */}
-        {message && (
+        {uploadMessage && (
           <div className={`mb-6 p-4 border rounded ${
-            message.includes('Failed') ? 'bg-red-50 border-red-200 text-red-600' : 'bg-blue-50 border-blue-200 text-blue-600'
+            uploadMessage.includes('Failed') ? 'bg-red-50 border-red-200 text-red-600' : 'bg-blue-50 border-blue-200 text-blue-600'
           }`}>
-            <p className="text-center">{message}</p>
+            <p className="text-center">{uploadMessage}</p>
           </div>
         )}
         

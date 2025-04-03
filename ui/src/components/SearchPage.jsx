@@ -1,36 +1,43 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { useAppContext } from '../context/AppContext';
 
 const SearchPage = () => {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [enhanceSearch, setEnhanceSearch] = useState(true);
-  const [searchResults, setSearchResults] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [message, setMessage] = useState('');
-  const [searchStage, setSearchStage] = useState('');
-
-  // API base URL from environment or default
-  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+  const {
+    searchQuery,
+    setSearchQuery,
+    enhanceSearch,
+    setEnhanceSearch,
+    searchResults,
+    setSearchResults,
+    isSearchLoading,
+    setIsSearchLoading,
+    searchMessage,
+    setSearchMessage,
+    searchStage,
+    setSearchStage,
+    API_BASE_URL
+  } = useAppContext();
 
   // Function to search for articles
   const handleSearch = async () => {
     if (!searchQuery.trim()) {
-      setMessage('Please enter a search query.');
+      setSearchMessage('Please enter a search query.');
       return;
     }
 
-    setIsLoading(true);
-    setMessage('Initiating search...');
+    setIsSearchLoading(true);
+    setSearchMessage('Initiating search...');
     setSearchStage('query');
 
     try {
       // Step 1: Processing query
       setSearchStage('processing');
-      setMessage('Processing your query...');
+      setSearchMessage('Processing your query...');
       await new Promise(resolve => setTimeout(resolve, 500)); // Simulate processing time
       
       // Step 2: Searching for matches
       setSearchStage('searching');
-      setMessage('Searching for relevant articles...');
+      setSearchMessage('Searching for relevant articles...');
       
       const response = await fetch(`${API_BASE_URL}/search`, {
         method: 'POST',
@@ -51,18 +58,18 @@ const SearchPage = () => {
       
       if (response.ok) {
         setSearchResults(data);
-        setMessage(`Found ${data.length} results.`);
+        setSearchMessage(`Found ${data.length} results.`);
       } else {
-        setMessage(`Error: ${data.detail || 'Search failed'}`);
+        setSearchMessage(`Error: ${data.detail || 'Search failed'}`);
         setSearchResults([]);
       }
     } catch (error) {
       console.error('Search error:', error);
-      setMessage(`Error: ${error.message}`);
+      setSearchMessage(`Error: ${error.message}`);
       setSearchResults([]);
       setSearchStage('error');
     } finally {
-      setIsLoading(false);
+      setIsSearchLoading(false);
     }
   };
 
@@ -126,10 +133,10 @@ const SearchPage = () => {
             />
             <button
               onClick={handleSearch}
-              disabled={isLoading}
+              disabled={isSearchLoading}
               className="bg-blue-600 text-white px-6 py-3 rounded-r hover:bg-blue-700 disabled:bg-blue-300 transition-colors"
             >
-              {isLoading ? 'Searching...' : 'Search'}
+              {isSearchLoading ? 'Searching...' : 'Search'}
             </button>
           </div>
           <div className="flex items-center mb-2">
@@ -150,14 +157,14 @@ const SearchPage = () => {
         </div>
 
         {/* Search Progress Indicator */}
-        {isLoading && renderSearchProgress()}
+        {isSearchLoading && renderSearchProgress()}
         
         {/* Status Message */}
-        {message && (
+        {searchMessage && (
           <div className={`mb-6 p-4 border rounded ${
-            message.includes('Error') ? 'bg-red-50 border-red-200 text-red-600' : 'bg-blue-50 border-blue-200 text-blue-600'
+            searchMessage.includes('Error') ? 'bg-red-50 border-red-200 text-red-600' : 'bg-blue-50 border-blue-200 text-blue-600'
           }`}>
-            <p className="text-center">{message}</p>
+            <p className="text-center">{searchMessage}</p>
           </div>
         )}
 
