@@ -47,11 +47,9 @@ class SemanticSearch:
             template="""
             Original search query: {query}
             
-            Task: Enhance this search query for finding news articles. 
-            Identify the key concepts, add relevant synonyms or related terms,
-            and rewrite it to maximize semantic search effectiveness.
-            
-            Enhanced query:
+            Rewrite this search query to improve semantic search results for news articles.
+            Add relevant synonyms and related terms that would help find matching content.
+            Your response should be ONLY the improved search query with no explanations or additional text.
             """
         )
         
@@ -140,9 +138,9 @@ class SemanticSearch:
         try:
             # Create a prompt for synonym generation
             prompt = f"""
-            Generate 5-8 synonyms or closely related terms for the search term: "{query}"
+            Generate 10-15 synonyms or closely related terms for: "{query}"
             
-            Return only the list of terms, one per line, without numbering or explanation.
+            Respond ONLY with the terms, one per line, without numbering or explanation.
             """
             
             # Generate synonyms

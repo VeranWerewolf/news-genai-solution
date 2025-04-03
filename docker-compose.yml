@@ -41,13 +41,14 @@ services:
       timeout: 10s
       retries: 5
       start_period: 60s
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
+    # Use the following commented section if you want to enable GPU support
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
 
   vector-db:
     image: qdrant/qdrant:latest

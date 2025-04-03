@@ -41,9 +41,7 @@ class ArticleAnalyzer:
             Summarize the following text in one clear and concise paragraph, capturing the key ideas without missing critical points.
             Ensure the summary is easy to understand and avoids excessive detail.
             The summary should be 3-5 sentences long and highlight the most important information. 
-            Return only the summary without results of the thinking process.
-            
-            Summary:
+            Output should contain ONLY the summary content.
             """
         )
         
@@ -54,11 +52,9 @@ class ArticleAnalyzer:
             
             Article Content: {text}
             
-            Task: Extract the main topics from this news article. 
-            Provide a list of 3-7 topics that accurately represent what the article is about.
-            Each topic should be 1-3 words and should be relevant for search indexing.
-            
-            Topics:
+            Task: Extract 3-7 main topics from this article as a simple list of keywords.
+            Each topic should be 1-3 words and relevant for search indexing.
+            Your response should ONLY contain the topics, one per line, with no numbering, explanations, or phrases like "The main topics are".
             """
         )
         
@@ -93,20 +89,9 @@ class ArticleAnalyzer:
                 text=text
             )
             
-            # Parse topics into a list
-            topics = [topic.strip() for topic in topics_text.split('\n') if topic.strip()]
-            
-            # Clean up topics - sometimes the model outputs numbered lists
-            cleaned_topics = []
-            for topic in topics:
-                # Remove numbering if present (e.g., "1. Politics" -> "Politics")
-                if '. ' in topic and topic[0].isdigit():
-                    topic = topic.split('. ', 1)[1]
-                cleaned_topics.append(topic)
-            
             # Add analysis to article
             article['summary'] = summary.strip()
-            article['topics'] = cleaned_topics[:7]  # Ensure max 7 topics
+            article['topics'] = topics[:7]  # Ensure max 7 topics
             
             logger.info(f"Successfully analyzed article: {article['title']}")
         except Exception as e:
