@@ -16,13 +16,14 @@ services:
     environment:
       - VECTOR_DB_HOST=vector-db
       - VECTOR_DB_PORT=6333
-      - LLM_API_URL=http://ollama:11434/api
+      - LLM_API_URL=http://ollama:11434
       - ALLOWED_ORIGINS=http://localhost:3000,http://ui:3000
       - POSTGRES_HOST=postgres-db
       - POSTGRES_PORT=5432
       - POSTGRES_USER=newsadmin
       - POSTGRES_PASSWORD=newspassword
       - POSTGRES_DB=newsdata
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -40,6 +41,12 @@ services:
     networks:
       - news-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/version"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
     # Use the following commented section if you want to enable GPU support
     # deploy:
     #   resources:
@@ -123,6 +130,7 @@ services:
       - news-network
     environment:
       - REACT_APP_API_URL=http://localhost:8000
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000"]
       interval: 30s

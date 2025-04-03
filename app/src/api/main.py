@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 import os
 import logging
-from pydantic import BaseModel, HttpUrl, validator
+from pydantic import BaseModel, field_validator
 from typing import List, Optional, Union, Any
 import urllib.parse
 
@@ -41,19 +41,8 @@ vector_db = VectorDatabase()
 semantic_search = SemanticSearch()
 
 # Define request and response models
-class UrlItem(str):
-    @classmethod
-    def __get_validators__(cls):
-        yield cls.validate
-
-    @classmethod
-    def validate(cls, v):
-        if not isinstance(v, str):
-            raise ValueError('string required')
-        return v
-
 class UrlListRequest(BaseModel):
-    urls: List[UrlItem]
+    urls: List[str]
     
     class Config:
         schema_extra = {
@@ -62,7 +51,8 @@ class UrlListRequest(BaseModel):
             }
         }
     
-    @validator('urls')
+    @field_validator('urls')
+    @classmethod
     def validate_urls(cls, v):
         valid_urls = []
         for url in v:

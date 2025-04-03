@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 class OllamaLLM(LLM):
     """LLM wrapper for Ollama API."""
     
-    api_url: str = os.getenv("LLM_API_URL", "http://ollama:11434/api")
+    api_url: str = os.getenv("LLM_API_URL", "http://ollama:11434")
     model_name: str = "llama3"  # Default model
     temperature: float = 0.1
     num_predict: int = 1024  # Equivalent to max_tokens
@@ -50,8 +50,14 @@ class OllamaLLM(LLM):
             data["options"]["stop"] = stop
         
         try:
-            endpoint = f"{self.api_url}/generate"
+            endpoint = f"{self.api_url}/api/generate"
+            logger.info(f"Calling Ollama API at endpoint: {endpoint}")
             response = requests.post(endpoint, headers=headers, json=data)
+            
+            # Log request and response details for debugging
+            logger.debug(f"Request data: {data}")
+            logger.debug(f"Response status: {response.status_code}")
+            
             response.raise_for_status()
             
             result = response.json()
@@ -80,7 +86,8 @@ class OllamaLLM(LLM):
         }
         
         try:
-            endpoint = f"{self.api_url}/chat"
+            endpoint = f"{self.api_url}/api/chat"
+            logger.info(f"Calling Ollama chat API at endpoint: {endpoint}")
             response = requests.post(endpoint, headers=headers, json=data)
             response.raise_for_status()
             
@@ -102,7 +109,7 @@ class OllamaChat:
         num_predict: int = 1024,
         top_p: float = 0.9
     ):
-        self.api_url = os.getenv("LLM_API_URL", "http://ollama:11434/api")
+        self.api_url = os.getenv("LLM_API_URL", "http://ollama:11434")
         self.model_name = model_name
         self.temperature = temperature
         self.num_predict = num_predict
@@ -130,8 +137,14 @@ class OllamaChat:
         }
         
         try:
-            endpoint = f"{self.api_url}/generate"
+            endpoint = f"{self.api_url}/api/generate"
+            logger.info(f"Calling Ollama API at endpoint: {endpoint}")
             response = requests.post(endpoint, headers=headers, json=data)
+            
+            # Log request and response for debugging
+            logger.debug(f"Request data: {data}")
+            logger.debug(f"Response status: {response.status_code}")
+            
             response.raise_for_status()
             
             result = response.json()

@@ -62,19 +62,57 @@ if ($containerExists -eq "ollama-setup") {
     docker rm -f ollama-setup | Out-Null
 }
 
+# Create a volume for Ollama data if it doesn't exist
+docker volume create ollama_data
+
 # Start container
 docker run -d -v ollama_data:/root/.ollama -p 11434:11434 --name ollama-setup ollama/ollama
 Write-Host "  Container started" -ForegroundColor Gray
 
 # Wait for Ollama to start
 Write-Host "  Waiting for Ollama to initialize..." -ForegroundColor Gray
-Start-Sleep -Seconds 5
+Start-Sleep -Seconds 10
+
+# Check if Ollama is ready
+$maxRetries = 5
+$retryCount = 0
+$ollamaReady = $false
+
+while (-not $ollamaReady -and $retryCount -lt $maxRetries) {
+    try {
+        $response = Invoke-RestMethod -Uri "http://localhost:11434/api/version" -Method Get -ErrorAction SilentlyContinue
+        if ($response) {
+            $ollamaReady = $true
+            Write-Host "  Ollama is ready! Version: $($response.version)" -ForegroundColor Green
+        }
+    } catch {
+        $retryCount++
+        Write-Host "  Waiting for Ollama to be ready (attempt $retryCount of $maxRetries)..." -ForegroundColor Yellow
+        Start-Sleep -Seconds 5
+    }
+}
+
+if (-not $ollamaReady) {
+    Write-Host "  WARNING: Ollama service didn't respond in time. Continuing anyway..." -ForegroundColor Yellow
+}
 
 # Pull the llama3 model
 Write-Host ""
 Write-Host "Downloading llama3 model (this may take a while)..." -ForegroundColor Yellow
 docker exec -it ollama-setup ollama pull llama3
-Write-Host "  Model downloaded successfully" -ForegroundColor Green
+if ($LASTEXITCODE -eq 0) {
+    Write-Host "  Model downloaded successfully" -ForegroundColor Green
+} else {
+    Write-Host "  WARNING: Model download may have encountered issues" -ForegroundColor Yellow
+}
+
+# List available models to verify
+Write-Host ""
+Write-Host "Verifying available models:" -ForegroundColor Yellow
+docker exec ollama-setup ollama list
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "  WARNING: Could not list models" -ForegroundColor Yellow
+}
 
 # Stop and remove the temporary container
 Write-Host ""
@@ -104,6 +142,85 @@ Write-Host ""
 Write-Host "Checking container status..." -ForegroundColor Yellow
 Start-Sleep -Seconds 5
 docker-compose ps
+
+# Ollama Integration Test Script
+# This script tests if Ollama is properly set up with the llama3 model
+
+Write-Host "=== Ollama Integration Test Script ===" -ForegroundColor Cyan
+Write-Host ""
+
+# Check if Ollama container is running
+Write-Host "Checking if Ollama container is running..." -ForegroundColor Yellow
+$ollamaRunning = docker ps --filter "name=ollama" --format "{{.Names}}"
+if ($ollamaRunning -eq "ollama") {
+    Write-Host "  Ollama container is running" -ForegroundColor Green
+} else {
+    Write-Host "  ERROR: Ollama container is not running!" -ForegroundColor Red
+    Write-Host "  Starting Ollama container..." -ForegroundColor Yellow
+    docker-compose up -d ollama
+    Start-Sleep -Seconds 10
+}
+
+Write-Host ""
+Write-Host "Testing Ollama API..." -ForegroundColor Yellow
+
+# Check if Ollama API is responding
+try {
+    $versionResponse = Invoke-RestMethod -Uri "http://localhost:11434/api/version" -Method Get -ErrorAction Stop
+    Write-Host "  Ollama API is responding. Version: $($versionResponse.version)" -ForegroundColor Green
+} catch {
+    Write-Host "  ERROR: Ollama API is not responding: $_" -ForegroundColor Red
+    exit 1
+}
+
+# Check available models
+Write-Host ""
+Write-Host "Checking available models..." -ForegroundColor Yellow
+try {
+    # First try to list models via CLI
+    $modelsList = docker exec ollama ollama list
+    Write-Host "  Available models:" -ForegroundColor Green
+    Write-Host $modelsList -ForegroundColor White
+    
+    # Check if llama3 model is available
+    if ($modelsList -match "llama3") {
+        Write-Host "  llama3 model is available!" -ForegroundColor Green
+    } else {
+        Write-Host "  WARNING: llama3 model not found. Attempting to pull it..." -ForegroundColor Yellow
+        docker exec ollama ollama pull llama3
+    }
+} catch {
+    Write-Host "  ERROR: Could not retrieve models: $_" -ForegroundColor Red
+}
+
+# Test generation with llama3 model
+Write-Host ""
+Write-Host "Testing text generation with llama3 model..." -ForegroundColor Yellow
+
+$testRequest = @{
+    model = "llama3"
+    prompt = "Say hello world in one sentence."
+    options = @{
+        temperature = 0.1
+        num_predict = 100
+    }
+    stream = $false
+} | ConvertTo-Json
+
+try {
+    $response = Invoke-RestMethod -Uri "http://localhost:11434/api/generate" -Method Post -Body $testRequest -ContentType "application/json" -ErrorAction Stop
+    Write-Host "  Text generation successful!" -ForegroundColor Green
+    Write-Host "  Response from llama3: $($response.response)" -ForegroundColor White
+} catch {
+    Write-Host "  ERROR: Text generation failed: $_" -ForegroundColor Red
+    
+    # Try to pull the model again if generation failed
+    Write-Host "  Attempting to pull llama3 model again..." -ForegroundColor Yellow
+    docker exec ollama ollama pull llama3
+}
+
+Write-Host ""
+Write-Host "Integration test complete!" -ForegroundColor Cyan
 
 Write-Host ""
 Write-Host "Setup complete!" -ForegroundColor Green
