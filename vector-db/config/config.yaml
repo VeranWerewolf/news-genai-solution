@@ -1,0 +1,47 @@
+storage:
+  # Storage persistence path
+  storage_path: /qdrant/storage
+
+  # Path to store snapshots
+  snapshots_path: /qdrant/snapshots
+
+  # Optimization options for vectors
+  optimizers:
+    # Default interval between optimizations in seconds
+    default_interval_sec: 600  # 10 minutes
+
+    # How many segments should be created before optimization
+    max_segment_number: 5
+
+  # Write-ahead-log related configuration
+  wal:
+    # Size of a single WAL segment
+    wal_segment_size: 104857600  # 100 MB
+
+    # How much WAL segments should be stored
+    wal_segments_ahead: 0
+
+  performance:
+    # Number of parallel threads used for search operations. If 0 - auto selection based on available CPU cores.
+    max_search_threads: 0
+
+service:
+  # TCP host and port for operating the service API
+  host: 0.0.0.0
+  port: 6333
+
+  # HTTP host and port for health checks
+  web_host: 0.0.0.0
+  web_port: 6334
+
+  # Enable CORS headers for API
+  enable_cors: true
+
+  # Timeout for long API calls in seconds
+  api_timeout: 300
+
+telemetry:
+  # Whether to disable anonymized telemetry collection
+  disabled: true
+
+log_level: INFO
