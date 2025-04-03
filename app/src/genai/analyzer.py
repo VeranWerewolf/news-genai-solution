@@ -89,6 +89,9 @@ class ArticleAnalyzer:
                 text=text
             )
             
+            # Parse topics from the response text
+            topics = [topic.strip() for topic in topics_text.split('\n') if topic.strip()]
+            
             # Add analysis to article
             article['summary'] = summary.strip()
             article['topics'] = topics[:7]  # Ensure max 7 topics

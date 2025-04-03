@@ -162,25 +162,64 @@ async def search_articles(request: SearchRequest):
     """Search for articles matching the query."""
     try:
         logger.info(f"Searching for articles with query: '{request.query}'")
-        # Perform search
+        
+        # Check if query is empty
+        if not request.query or request.query.strip() == "":
+            logger.warning("Empty search query provided")
+            raise HTTPException(status_code=400, detail="Search query cannot be empty")
+        
+        # First, if no topics are provided but we want enhanced search,
+        # we can try to find relevant topics to improve search quality
+        suggested_topics = []
+        if request.enhance and (not request.topics or len(request.topics) == 0):
+            try:
+                suggested_topics = semantic_search.get_related_topics(request.query, limit=3)
+                logger.info(f"Found suggested topics: {suggested_topics}")
+                # We'll use these in search but not enforce them as filters
+            except Exception as e:
+                logger.warning(f"Error finding suggested topics: {e}")
+        
+        # Perform search with enhanced parameters
         results = semantic_search.search(
             query=request.query,
             enhance=request.enhance,
-            limit=request.limit
+            limit=request.limit * 2,  # Get more results than needed for filtering
+            filter_by_topics=request.topics  # Original topic filter
         )
         
-        # Filter by topics if provided
+        # Filter by topics if provided by user
         if request.topics and len(request.topics) > 0:
-            results = [
+            filtered_results = [
                 article for article in results
                 if any(topic in article.get('topics', []) for topic in request.topics)
             ]
+            
+            # If we filtered out everything, try again without topic filtering
+            if not filtered_results and results:
+                logger.warning(f"Topic filtering removed all results, returning unfiltered results")
+                filtered_results = results
+            
+            results = filtered_results
+        
+        # If we still have no results, try one last search with just the terms
+        if not results:
+            logger.warning(f"No results found with primary strategies, trying basic search")
+            basic_results = semantic_search.vector_db.search(
+                query=request.query.lower(),  # Simple lowercase transformation
+                limit=request.limit
+            )
+            results = basic_results
+        
+        # Limit to requested number of results
+        results = results[:request.limit]
         
         logger.info(f"Search returned {len(results)} results")
         return results
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error searching articles: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Search error: {str(e)}")
         
 @app.post("/topics", response_model=List[str])
 async def search_topics(request: SearchRequest):

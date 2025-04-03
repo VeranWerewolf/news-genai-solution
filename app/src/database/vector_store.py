@@ -304,7 +304,7 @@ class VectorDatabase:
     
     def search(self, query: str, limit: int = 5, filter_by_topics: List[str] = None) -> List[Dict[str, Any]]:
         """
-        Search for articles similar to the query.
+        Search for articles similar to the query with multiple search strategies.
         
         Args:
             query: Search query
@@ -316,32 +316,146 @@ class VectorDatabase:
         """
         try:
             if self.db_type == "qdrant":
-                # Get embedding for query
-                query_embedding = self.embeddings.embed_query(query)
+                all_results = []
                 
-                # Create filter if topics provided
-                search_filter = None
-                if filter_by_topics:
-                    search_filter = models.Filter(
-                        must=[
-                            models.FieldCondition(
-                                key="topics",
-                                match=models.MatchAny(any=filter_by_topics)
-                            )
-                        ]
+                # Strategy 1: Vector similarity search
+                try:
+                    # Get embedding for query
+                    query_embedding = self.embeddings.embed_query(query)
+                    
+                    # Create filter if topics provided
+                    search_filter = None
+                    if filter_by_topics:
+                        search_filter = models.Filter(
+                            must=[
+                                models.FieldCondition(
+                                    key="topics",
+                                    match=models.MatchAny(any=filter_by_topics)
+                                )
+                            ]
+                        )
+                    
+                    # Search in Qdrant
+                    vector_results = self.client.search(
+                        collection_name="news_articles",
+                        query_vector=query_embedding,
+                        limit=limit,
+                        filter=search_filter,
+                        score_threshold=0.5  # Set a relevance threshold
                     )
+                    
+                    # Extract articles from results
+                    all_results.extend([point.payload for point in vector_results])
+                    logger.info(f"Vector search for '{query}' found {len(vector_results)} results")
+                except Exception as e:
+                    logger.error(f"Vector search failed: {e}")
                 
-                # Search in Qdrant
-                results = self.client.search(
-                    collection_name="news_articles",
-                    query_vector=query_embedding,
-                    limit=limit,
-                    filter=search_filter
-                )
+                # Strategy 2: Keyword matching fallback if we don't have enough results
+                if len(all_results) < limit:
+                    try:
+                        logger.info(f"Trying keyword fallback for '{query}'")
+                        
+                        # Prepare filter conditions
+                        filter_conditions = []
+                        
+                        # Add topic filter if provided
+                        if filter_by_topics:
+                            filter_conditions.append(
+                                models.FieldCondition(
+                                    key="topics",
+                                    match=models.MatchAny(any=filter_by_topics)
+                                )
+                            )
+                        
+                        # Text search conditions
+                        text_conditions = []
+                        
+                        # Search in title with full query
+                        text_conditions.append(
+                            models.FieldCondition(
+                                key="title", 
+                                match=models.MatchText(text=query)
+                            )
+                        )
+                        
+                        # Search in summary with full query
+                        text_conditions.append(
+                            models.FieldCondition(
+                                key="summary", 
+                                match=models.MatchText(text=query)
+                            )
+                        )
+                        
+                        # Also search by individual keywords for broader matches
+                        keywords = [k.strip() for k in query.lower().split() if len(k.strip()) > 3]
+                        for keyword in keywords:
+                            # Search in title with keyword
+                            text_conditions.append(
+                                models.FieldCondition(
+                                    key="title", 
+                                    match=models.MatchText(text=keyword)
+                                )
+                            )
+                            
+                            # Search in summary with keyword
+                            text_conditions.append(
+                                models.FieldCondition(
+                                    key="summary", 
+                                    match=models.MatchText(text=keyword)
+                                )
+                            )
+                            
+                            # Search in topics with keyword
+                            text_conditions.append(
+                                models.FieldCondition(
+                                    key="topics", 
+                                    match=models.MatchText(text=keyword)
+                                )
+                            )
+                        
+                        # Any text match is acceptable
+                        if text_conditions:
+                            filter_conditions.append(
+                                models.Filter(
+                                    should=text_conditions,
+                                    min_should=1  # At least one should match
+                                )
+                            )
+                        
+                        # Only perform search if we have filter conditions
+                        if filter_conditions:
+                            if len(filter_conditions) > 1:
+                                combined_filter = models.Filter(
+                                    must=filter_conditions
+                                )
+                            else:
+                                combined_filter = filter_conditions[0]
+                            
+                            # Perform the keyword search
+                            keyword_results = self.client.scroll(
+                                collection_name="news_articles",
+                                filter=combined_filter,
+                                limit=limit,
+                                with_payload=True,
+                                with_vectors=False
+                            )
+                            
+                            # Extract articles from results
+                            if keyword_results and keyword_results[0]:
+                                keyword_articles = [point.payload for point in keyword_results[0]]
+                                logger.info(f"Keyword search found {len(keyword_articles)} results")
+                                
+                                # Add only new, non-duplicate results
+                                existing_ids = {article.get('id') for article in all_results}
+                                for article in keyword_articles:
+                                    if article.get('id') not in existing_ids:
+                                        all_results.append(article)
+                                        existing_ids.add(article.get('id'))
+                    except Exception as e:
+                        logger.error(f"Keyword fallback search failed: {e}")
                 
-                # Extract articles from results
-                articles = [point.payload for point in results]
-                return articles
+                # Return results, limited to requested count
+                return all_results[:limit]
                 
             elif self.db_type == "chroma":
                 # Search in ChromaDB
