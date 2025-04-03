@@ -579,33 +579,111 @@ class VectorDatabase:
         """
         try:
             if self.db_type == "qdrant":
-                # Create filter for topics
-                search_filter = models.Filter(
-                    must=[
-                        models.FieldCondition(
-                            key="topics",
-                            match=models.MatchAny(any=topics)
+                # For Qdrant, there are two approaches to try:
+                # 1. First try using the search method with a filter
+                try:
+                    # Create filter for topics
+                    search_filter = models.Filter(
+                        must=[
+                            models.FieldCondition(
+                                key="topics",
+                                match=models.MatchAny(any=topics)
+                            )
+                        ]
+                    )
+                    
+                    # Use search with a null vector but with filter
+                    # This is sometimes called a "filter-only" search
+                    null_vector = [0.0] * self.embedding_dim  # Zero vector for pure filter search
+                    
+                    search_results = self.client.search(
+                        collection_name="news_articles",
+                        query_vector=null_vector,
+                        query_filter=search_filter,
+                        limit=limit,
+                        with_payload=True,
+                        score_threshold=None  # Don't use score threshold for filter-only search
+                    )
+                    
+                    # Extract articles from results
+                    if search_results:
+                        articles = [point.payload for point in search_results]
+                        logger.info(f"Found {len(articles)} articles using topic filter search")
+                        return articles
+                except Exception as e:
+                    logger.warning(f"Filter search failed, trying alternate method: {e}")
+                
+                # 2. If the first approach fails, try using the scroll method correctly
+                try:
+                    # The scroll method requires a filter_selector field not just filter
+                    scroll_results = self.client.scroll(
+                        collection_name="news_articles",
+                        limit=limit,
+                        with_payload=True,
+                        with_vectors=False,
+                        filter=models.Filter(
+                            must=[
+                                models.FieldCondition(
+                                    key="topics",
+                                    match=models.MatchAny(any=topics)
+                                )
+                            ]
                         )
-                    ]
-                )
+                    )
+                    
+                    # Extract articles from results
+                    if scroll_results and scroll_results[0]:
+                        articles = [point.payload for point in scroll_results[0]]
+                        logger.info(f"Found {len(articles)} articles using topic filter scroll")
+                        return articles
+                except Exception as e:
+                    logger.warning(f"Scroll method with filter failed: {e}")
                 
-                # Search for articles with these topics
-                scroll_params = {
-                    "collection_name": "news_articles",
-                    "limit": limit,
-                    "with_payload": True,
-                    "with_vectors": False
-                }
+                # 3. Last resort: Get topic-associated article IDs and retrieve them
+                try:
+                    all_article_ids = set()
+                    
+                    # Look up each topic separately to find associated articles
+                    for topic in topics:
+                        # Hash the topic name to get its ID
+                        topic_id = hashlib.md5(topic.encode()).hexdigest()
+                        
+                        # Try retrieving the topic
+                        topic_results = self.client.retrieve(
+                            collection_name="news_topics",
+                            ids=[topic_id],
+                            with_payload=True
+                        )
+                        
+                        if topic_results:
+                            # Get article IDs associated with this topic
+                            article_ids = topic_results[0].payload.get('articles', [])
+                            for article_id in article_ids:
+                                all_article_ids.add(article_id)
+                    
+                    # If we found article IDs, retrieve them
+                    if all_article_ids:
+                        # Convert to list and limit
+                        article_ids_list = list(all_article_ids)[:limit]
+                        
+                        # Retrieve articles
+                        articles = []
+                        for article_id in article_ids_list:
+                            article_result = self.client.retrieve(
+                                collection_name="news_articles",
+                                ids=[article_id],
+                                with_payload=True
+                            )
+                            
+                            if article_result:
+                                articles.append(article_result[0].payload)
+                        
+                        logger.info(f"Found {len(articles)} articles using topic-article mapping")
+                        return articles
+                except Exception as e:
+                    logger.error(f"All topic search methods failed: {e}")
                 
-                # Add filter to parameters
-                scroll_params["filter"] = search_filter
-                
-                keyword_results = self.client.scroll(**scroll_params)
-                
-                # Extract articles from results
-                if keyword_results and keyword_results[0]:
-                    articles = [point.payload for point in keyword_results[0]]
-                    return articles
+                # If all methods failed
                 return []
                 
             return []
