@@ -178,4 +178,5 @@ cython_debug/
 
 #Environment folders
 vector-db/*
+huggingface-cache/*
 ollama-data/*

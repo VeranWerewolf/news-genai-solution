@@ -66,7 +66,6 @@ This will start all the required containers:
 - API Documentation: http://localhost:8000/docs
 - UI: http://localhost:3000
 - Vector Database UI: http://localhost:6333/dashboard
-- Grafana Monitoring: http://localhost:3001
 
 ## API Endpoints
 
@@ -148,18 +147,6 @@ sudo systemctl restart docker
 ### API Connection Issues
 - Ensure all containers are running with `docker-compose ps`
 - Check application logs: `docker logs news-genai-solution_app_1`
-
-### Network Debugging
-For Windows:
-```
-./debug-network.ps1
-```
-
-For Linux/Mac:
-```
-chmod +x debug-network.sh
-./debug-network.sh
-```
 
 ## License
 MIT License - see LICENSE file for details

@@ -11,13 +11,19 @@ logger = logging.getLogger(__name__)
 class LocalSentenceTransformerEmbeddings(Embeddings):
     """Use sentence-transformers for embeddings."""
     
-    def __init__(self, model_name: str = "all-MiniLM-L6-v2"):
+    def __init__(self, model_name: str = "all-MiniLM-L6-v2", cache_folder: str = None):
         """Initialize the embeddings model.
         
         Args:
             model_name: The name of the sentence-transformers model to use
+            cache_folder: The folder to cache models (if None, uses default cache location)
         """
         try:
+            # Set cache folder if provided, otherwise use default
+            if cache_folder:
+                os.environ['TRANSFORMERS_CACHE'] = cache_folder
+                
+            # Check if model is already cached to avoid redundant log messages
             self.model = SentenceTransformer(model_name)
             logger.info(f"Initialized sentence transformer model: {model_name}")
         except Exception as e:

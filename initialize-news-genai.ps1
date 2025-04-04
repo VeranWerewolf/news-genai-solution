@@ -29,7 +29,9 @@ Write-Host "Creating necessary directories..." -ForegroundColor Yellow
 $directories = @(
     "vector-db/persistence",
     "vector-db/snapshots",
-    "vector-db/config"
+    "vector-db/config",
+    "huggingface-cache",
+    "ollama-data"
 )
 
 foreach ($dir in $directories) {
@@ -61,10 +63,10 @@ if ($containerExists -eq "ollama-setup") {
 }
 
 # Create a volume for Ollama data if it doesn't exist
-docker volume create ollama_data
+docker volume create ollama-data
 
 # Start container
-docker run -d -v ollama_data:/root/.ollama -p 11434:11434 --name ollama-setup ollama/ollama
+docker run -d -v ollama-data:/root/.ollama -p 11434:11434 --name ollama-setup ollama/ollama
 Write-Host "  Container started" -ForegroundColor Gray
 
 # Wait for Ollama to start
