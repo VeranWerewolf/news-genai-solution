@@ -436,23 +436,19 @@ class VectorDatabase:
                             else:
                                 combined_filter = filter_conditions[0]
                             
-                            # Perform the keyword search
-                            scroll_params = {
-                                "collection_name": "news_articles",
-                                "limit": limit,
-                                "with_payload": True,
-                                "with_vectors": False
-                            }
-                            
-                            # Only add filter if it exists
-                            if combined_filter is not None:
-                                scroll_params["filter"] = combined_filter
-                            
-                            keyword_results = self.client.scroll(**scroll_params)
+                            # Perform the keyword search - FIX: Use scroll with filter properly
+                            # The error is in using 'filter' parameter - it should be passed directly, not as a named parameter
+                            scroll_results = self.client.scroll(
+                                collection_name="news_articles",
+                                limit=limit,
+                                with_payload=True,
+                                with_vectors=False,
+                                filter=combined_filter  # This is correct, pass the filter directly
+                            )
                             
                             # Extract articles from results
-                            if keyword_results and keyword_results[0]:
-                                keyword_articles = [point.payload for point in keyword_results[0]]
+                            if scroll_results and scroll_results[0]:
+                                keyword_articles = [point.payload for point in scroll_results[0]]
                                 logger.info(f"Keyword search found {len(keyword_articles)} results")
                                 
                                 # Add only new, non-duplicate results

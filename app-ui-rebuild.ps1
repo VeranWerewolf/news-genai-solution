@@ -8,11 +8,38 @@ Write-Host "Stopping all containers..." -ForegroundColor Yellow
 docker-compose down
 Write-Host "  All containers stopped" -ForegroundColor Green
 
+# Verify that all required directories exist
+Write-Host ""
+Write-Host "Verifying required directories..." -ForegroundColor Yellow
+$directories = @(
+    "./vector-db/persistence",
+    "./vector-db/snapshots",
+    "./vector-db/config",
+    "./huggingface-cache",
+    "./ollama-data"
+)
+
+$currentDir = Get-Location
+foreach ($dir in $directories) {
+    $fullPath = Join-Path -Path $currentDir -ChildPath $dir
+    if (-not (Test-Path $fullPath)) {
+        Write-Host "  Creating missing directory: $dir" -ForegroundColor Yellow
+        New-Item -ItemType Directory -Path $fullPath -Force | Out-Null
+    } else {
+        Write-Host "  Directory exists: $dir" -ForegroundColor Green
+    }
+}
+
 # Rebuild the app container
 Write-Host ""
 Write-Host "Rebuilding app container..." -ForegroundColor Yellow
 docker-compose build app
 Write-Host "  App container rebuilt" -ForegroundColor Green
+
+# Verify volume paths in docker-compose
+Write-Host ""
+Write-Host "Checking volume mappings from docker-compose..." -ForegroundColor Yellow
+docker-compose config | Select-String -Pattern "volume" -Context 0,1
 
 # Start all services
 Write-Host ""
