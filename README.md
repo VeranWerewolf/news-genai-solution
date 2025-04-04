@@ -3,7 +3,8 @@
 A containerized solution for news article scraping, AI-powered analysis using locally-hosted Llama3, and semantic search.
 
 ## Roadmap
-- Add GPU support for ollama models to process information faster
+- Add chanking to the news articles if the amount of the tokens is exceeded (just trimming content for now) 
+- Add GPU support for ollama models to process information faster (only CPU-mode is available)
 - Implement SentenceTransformer:Load cache to speed up the initialization of the App container
 
 ## Features
