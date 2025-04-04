@@ -41,6 +41,7 @@ class ArticleAnalyzer:
             Summarize the following text in one clear and concise paragraph, capturing the key ideas without missing critical points.
             Ensure the summary is easy to understand and avoids excessive detail.
             The summary should be 3-5 sentences long and highlight the most important information. 
+            Do not include phrases like "Here is a summary of the article:"
             Output should contain ONLY the summary content.
             """
         )

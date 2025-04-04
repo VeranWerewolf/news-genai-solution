@@ -3,6 +3,7 @@ services:
     build: ./app
     volumes:
       - ./app:/app
+      - ./huggingface-cache:/root/.cache/huggingface
     env_file:
       - .env
     ports:
@@ -17,6 +18,7 @@ services:
       - VECTOR_DB_PORT=6333
       - LLM_API_URL=http://ollama:11434
       - ALLOWED_ORIGINS=http://localhost:3000,http://ui:3000
+      - TRANSFORMERS_CACHE=/root/.cache/huggingface
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
@@ -29,7 +31,7 @@ services:
     image: ollama/ollama:latest
     container_name: ollama
     volumes:
-      - ollama_data:/root/.ollama
+      - ./ollama-data:/root/.ollama
     ports:
       - "11434:11434"
     networks:
@@ -41,14 +43,6 @@ services:
       timeout: 10s
       retries: 5
       start_period: 60s
-    # Use the following commented section if you want to enable GPU support
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: 1
-    #           capabilities: [gpu]
 
   vector-db:
     image: qdrant/qdrant:latest
@@ -74,24 +68,6 @@ services:
       retries: 3
       start_period: 20s
 
-  # Optional: Add monitoring with Grafana
-  grafana:
-    image: grafana/grafana:latest
-    container_name: news-grafana
-    depends_on:
-      - vector-db
-    ports:
-      - "3001:3000"
-    volumes:
-      - ./grafana-data:/var/lib/grafana
-    networks:
-      - news-network
-    environment:
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-      - GF_USERS_ALLOW_SIGN_UP=false
-    restart: unless-stopped
-
   ui:
     build: ./ui
     ports:
@@ -113,7 +89,3 @@ services:
 networks:
   news-network:
     driver: bridge
-
-volumes:
-  ollama_data:
-    # Named volume for Ollama data

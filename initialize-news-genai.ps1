@@ -24,21 +24,42 @@ try {
 
 Write-Host ""
 
+# Get current directory
+$currentDir = Get-Location
+
 # Create necessary directories
 Write-Host "Creating necessary directories..." -ForegroundColor Yellow
 $directories = @(
-    "vector-db/persistence",
-    "vector-db/snapshots",
-    "vector-db/config",
-    "grafana-data"
+    "./vector-db/persistence",
+    "./vector-db/snapshots",
+    "./vector-db/config",
+    "./huggingface-cache",
+    "./ollama-data"
 )
 
 foreach ($dir in $directories) {
-    if (-not (Test-Path $dir)) {
-        New-Item -ItemType Directory -Path $dir -Force | Out-Null
-        Write-Host "  Created directory: $dir" -ForegroundColor Gray
+    $fullPath = Join-Path -Path $currentDir -ChildPath $dir
+    if (-not (Test-Path $fullPath)) {
+        New-Item -ItemType Directory -Path $fullPath -Force | Out-Null
+        Write-Host "  Created directory: $fullPath" -ForegroundColor Gray
     } else {
-        Write-Host "  Directory already exists: $dir" -ForegroundColor Gray
+        Write-Host "  Directory already exists: $fullPath" -ForegroundColor Gray
+    }
+}
+
+# Verify directory permissions
+Write-Host ""
+Write-Host "Verifying directory permissions..." -ForegroundColor Yellow
+foreach ($dir in $directories) {
+    $fullPath = Join-Path -Path $currentDir -ChildPath $dir
+    try {
+        # Test if we can write to the directory
+        $testFile = Join-Path -Path $fullPath -ChildPath "permission_test.txt"
+        "test" | Out-File -FilePath $testFile -Encoding utf8 -Force
+        Remove-Item -Path $testFile -Force
+        Write-Host "  Directory has write permissions: $fullPath" -ForegroundColor Gray
+    } catch {
+        Write-Host "  WARNING: Directory may have permission issues: $fullPath" -ForegroundColor Yellow
     }
 }
 
@@ -61,12 +82,10 @@ if ($containerExists -eq "ollama-setup") {
     docker rm -f ollama-setup | Out-Null
 }
 
-# Create a volume for Ollama data if it doesn't exist
-docker volume create ollama_data
-
-# Start container
-docker run -d -v ollama_data:/root/.ollama -p 11434:11434 --name ollama-setup ollama/ollama
-Write-Host "  Container started" -ForegroundColor Gray
+# Start container with proper volume mapping
+$ollamaDataPath = Join-Path -Path $currentDir -ChildPath "./ollama-data"
+docker run -d -v ${ollamaDataPath}:/root/.ollama -p 11434:11434 --name ollama-setup ollama/ollama
+Write-Host "  Container started with volume: ${ollamaDataPath} -> /root/.ollama" -ForegroundColor Gray
 
 # Wait for Ollama to start
 Write-Host "  Waiting for Ollama to initialize..." -ForegroundColor Gray
@@ -218,6 +237,11 @@ try {
     docker exec ollama ollama pull llama3
 }
 
+# Display all volume mappings from docker-compose
+Write-Host ""
+Write-Host "Checking volume mappings from docker-compose..." -ForegroundColor Yellow
+docker-compose config | Select-String -Pattern "volume" -Context 0,1
+
 Write-Host ""
 Write-Host "Integration test complete!" -ForegroundColor Cyan
 
@@ -228,7 +252,6 @@ Write-Host "Access points:" -ForegroundColor Cyan
 Write-Host "  API Documentation: http://localhost:8000/docs" -ForegroundColor White
 Write-Host "  User Interface: http://localhost:3000" -ForegroundColor White
 Write-Host "  Vector Database UI: http://localhost:6333/dashboard" -ForegroundColor White
-Write-Host "  Grafana Monitoring: http://localhost:3001" -ForegroundColor White
 Write-Host ""
 Write-Host "Note: The first request to the API might take longer as the Llama3 model initializes." -ForegroundColor Yellow
 

@@ -176,31 +176,8 @@ class SemanticSearch:
             if len(all_results) >= limit and not enhance:
                 return all_results[:limit]
             
-            # Strategy 2: Enhanced query search (if requested)
+            # Strategy 2: Topic-based discovery (if requested)
             if enhance:
-                enhanced_query = self.enhance_query(query)
-                if enhanced_query != query:
-                    logger.info(f"Strategy 2: Enhanced query search: '{enhanced_query}'")
-                    enhanced_results = self.vector_db.search(enhanced_query, limit=limit, filter_by_topics=filter_by_topics)
-                    self._add_unique_results(enhanced_results, all_results, seen_ids)
-                
-                # If we have enough results after enhancement, return
-                if len(all_results) >= limit:
-                    return all_results[:limit]
-                
-                # Strategy 3: Search using expanded terms
-                expanded_terms = self.expand_query_with_synonyms(query)
-                for i, term in enumerate(expanded_terms[:5]):  # Limit to top 5 terms for efficiency
-                    if term != query and term not in [query, enhanced_query]:
-                        logger.info(f"Strategy 3.{i+1}: Expanded term search: '{term}'")
-                        term_results = self.vector_db.search(term, limit=limit//2, filter_by_topics=filter_by_topics)
-                        self._add_unique_results(term_results, all_results, seen_ids)
-                        
-                        # If we have enough results, break out of the loop
-                        if len(all_results) >= limit:
-                            break
-                
-                # Strategy 4: Topic-based discovery
                 if len(all_results) < limit:
                     related_topics = self.get_related_topics(query, limit=3)
                     if related_topics and not filter_by_topics:
