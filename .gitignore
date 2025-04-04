@@ -175,6 +175,7 @@ cython_debug/
 
 #VSCode
 ./vs
+.vs/*
 
 #Environment folders
 vector-db/*
