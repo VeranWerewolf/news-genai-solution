@@ -2,6 +2,10 @@
 
 A containerized solution for news article scraping, AI-powered analysis using locally-hosted Llama3, and semantic search.
 
+## Roadmap
+- Add GPU support for ollama models to process information faster
+- Implement SentenceTransformer:Load cache to speed up the initialization of the App container
+
 ## Features
 - News extraction from provided URLs
 - Llama3-driven summarization and topic identification via Ollama
@@ -36,32 +40,14 @@ git clone https://github.com/yourusername/news-genai-solution.git
 cd news-genai-solution
 ```
 
-### 2. Setup Ollama with the required model
-The setup script will download the Llama3 model via Ollama:
+### 2. Setup using script
+The setup script will initialize all required containers:
 
-```bash
-# For Windows:
-./initialize-news-genai.ps1
+Run:
+Windows: initialize-news-genai.ps1
+Linux: initialize-news-genai.sh
 
-# For Linux/Mac:
-chmod +x setup-ollama.sh
-./setup-ollama.sh
-```
-
-### 3. Start the services
-Once the setup is complete, start all services:
-
-```bash
-docker-compose up -d
-```
-
-This will start all the required containers:
-- ollama: The Ollama service running the Llama3 model locally
-- app: The FastAPI application for news extraction and analysis
-- vector-db: Qdrant vector database for semantic search
-- ui: The user interface
-
-### 4. Access the services
+### 3. Access the services
 - API: http://localhost:8000
 - API Documentation: http://localhost:8000/docs
 - UI: http://localhost:3000
@@ -111,42 +97,26 @@ GET /articles/similar/{article_id}
 ```
 Finds articles that are semantically similar to the given article.
 
-## Using GPU Acceleration (Optional)
+## Using GPU Acceleration (TBD)
 
-The default setup uses CPU-only mode for Ollama. If you have a compatible NVIDIA GPU, you can enable GPU acceleration by:
-
-1. Installing the NVIDIA Container Toolkit:
-```bash
-# For Ubuntu/Debian
-curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
-curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
-sudo apt-get update
-sudo apt-get install -y nvidia-container-toolkit
-```
-
-2. Configure Docker to use NVIDIA:
-```bash
-sudo nvidia-ctk runtime configure --runtime=docker
-sudo systemctl restart docker
-```
-
-3. Update the `docker-compose.yml` file to enable GPU support (uncomment the deploy section).
+The default setup uses CPU-only mode for Ollama. GPU-mode will be implemented later
 
 ## Performance Notes
+- Every time the backend starts it can take 2-3 minutes to download requred data
 - CPU-only mode will be significantly slower than GPU-accelerated mode
 - The first request to the model might take longer as Ollama loads the model into memory
 - For production use, consider using a more powerful server or enabling GPU acceleration
 
 ## Troubleshooting
+ - In the UI app you can check System Status to see what 
 
 ### Model Loading Issues
 - Check Ollama logs: `docker logs ollama`
 - Ensure you have enough disk space and RAM
-- If using GPU, verify that NVIDIA drivers are properly installed
 
 ### API Connection Issues
 - Ensure all containers are running with `docker-compose ps`
-- Check application logs: `docker logs news-genai-solution_app_1`
+- Check application logs
 
 ## License
 MIT License - see LICENSE file for details
